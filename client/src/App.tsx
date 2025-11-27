@@ -9,6 +9,8 @@ import Explore from "@/pages/explore";
 import Business from "@/pages/business";
 import Rewards from "@/pages/rewards";
 import MissionDetail from "@/pages/mission-detail";
+import SuperAdminDashboard from "@/pages/admin/super-dashboard";
+import BusinessAdminDashboard from "@/pages/admin/business-dashboard";
 
 function Router() {
   return (
@@ -18,6 +20,11 @@ function Router() {
       <Route path="/business" component={Business} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/mission/:id" component={MissionDetail} />
+      
+      {/* Admin Routes */}
+      <Route path="/admin/super" component={SuperAdminDashboard} />
+      <Route path="/admin/business" component={BusinessAdminDashboard} />
+      
       <Route component={NotFound} />
     </Switch>
   );
