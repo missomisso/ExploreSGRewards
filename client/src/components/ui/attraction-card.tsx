@@ -13,6 +13,8 @@ interface AttractionCardProps {
   distance?: string;
 }
 
+import { Link } from "wouter";
+
 export function AttractionCard({
   title,
   category,
@@ -57,9 +59,11 @@ export function AttractionCard({
           </div>
         </CardContent>
         <CardFooter className="p-4 pt-0">
-          <Button className="w-full bg-primary hover:bg-primary/90 text-white shadow-sm">
-            Check In
-          </Button>
+          <Link href="/mission/gardens-by-the-bay">
+            <Button className="w-full bg-primary hover:bg-primary/90 text-white shadow-sm">
+              Check In & Earn
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     </motion.div>
