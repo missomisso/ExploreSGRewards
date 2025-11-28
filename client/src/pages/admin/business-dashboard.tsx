@@ -141,7 +141,9 @@ export default function BusinessAdminDashboard() {
                 </div>
               ))}
             </div>
-            <Button className="w-full mt-6" variant="secondary">View All Pending</Button>
+            <Button className="w-full mt-6" variant="secondary" asChild>
+              <Link href="/admin/business/verification">View All Pending</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>

@@ -12,6 +12,7 @@ import MissionDetail from "@/pages/mission-detail";
 import SuperAdminDashboard from "@/pages/admin/super-dashboard";
 import BusinessAdminDashboard from "@/pages/admin/business-dashboard";
 import CreateMission from "@/pages/admin/create-mission";
+import VerificationCenter from "@/pages/admin/verification-center";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/admin/super" component={SuperAdminDashboard} />
       <Route path="/admin/business" component={BusinessAdminDashboard} />
       <Route path="/admin/business/missions/new" component={CreateMission} />
+      <Route path="/admin/business/verification" component={VerificationCenter} />
       
       <Route component={NotFound} />
     </Switch>
