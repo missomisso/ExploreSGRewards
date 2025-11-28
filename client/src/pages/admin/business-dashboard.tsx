@@ -20,6 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { Link } from "wouter";
+
 export default function BusinessAdminDashboard() {
   // Mock Data for Business Admin
   const stats = [
@@ -52,9 +54,11 @@ export default function BusinessAdminDashboard() {
           <Button variant="outline" className="gap-2">
             <QrCode className="h-4 w-4" /> Print QR Codes
           </Button>
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> Create Mission
-          </Button>
+          <Link href="/admin/business/missions/new">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> Create Mission
+            </Button>
+          </Link>
         </div>
       </div>
 

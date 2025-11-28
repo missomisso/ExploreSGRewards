@@ -11,6 +11,7 @@ import Rewards from "@/pages/rewards";
 import MissionDetail from "@/pages/mission-detail";
 import SuperAdminDashboard from "@/pages/admin/super-dashboard";
 import BusinessAdminDashboard from "@/pages/admin/business-dashboard";
+import CreateMission from "@/pages/admin/create-mission";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       {/* Admin Routes */}
       <Route path="/admin/super" component={SuperAdminDashboard} />
       <Route path="/admin/business" component={BusinessAdminDashboard} />
+      <Route path="/admin/business/missions/new" component={CreateMission} />
       
       <Route component={NotFound} />
     </Switch>
