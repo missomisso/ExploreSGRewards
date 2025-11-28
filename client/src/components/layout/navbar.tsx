@@ -2,11 +2,13 @@ import { Link, useLocation } from "wouter";
 import { MapPin, Gift, Building2, User, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
 
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const isLoggedIn = true; // Mock state
 
   const navItems = [
     { href: "/", label: "Home", icon: MapPin },
@@ -46,9 +48,22 @@ export function Navbar() {
               </a>
             </Link>
           ))}
-          <Button size="sm" className="ml-4">
-            Sign In
-          </Button>
+          
+          {isLoggedIn ? (
+            <Link href="/profile">
+              <a className="ml-4 flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src="https://github.com/shadcn.png" />
+                  <AvatarFallback>AC</AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium text-foreground">Alex Chen</span>
+              </a>
+            </Link>
+          ) : (
+            <Button size="sm" className="ml-4">
+              Sign In
+            </Button>
+          )}
         </div>
 
         {/* Mobile Nav */}
@@ -76,7 +91,18 @@ export function Navbar() {
                     </a>
                   </Link>
                 ))}
-                <Button className="mt-4 w-full">Sign In</Button>
+                
+                <div className="mt-4 border-t pt-4">
+                   <Link href="/profile">
+                     <a 
+                       onClick={() => setIsOpen(false)}
+                       className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md"
+                     >
+                       <User className="h-5 w-5" />
+                       My Profile
+                     </a>
+                   </Link>
+                </div>
               </div>
             </SheetContent>
           </Sheet>

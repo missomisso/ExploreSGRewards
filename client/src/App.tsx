@@ -13,6 +13,7 @@ import SuperAdminDashboard from "@/pages/admin/super-dashboard";
 import BusinessAdminDashboard from "@/pages/admin/business-dashboard";
 import CreateMission from "@/pages/admin/create-mission";
 import VerificationCenter from "@/pages/admin/verification-center";
+import Profile from "@/pages/profile";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/business" component={Business} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/mission/:id" component={MissionDetail} />
+      <Route path="/profile" component={Profile} />
       
       {/* Admin Routes */}
       <Route path="/admin/super" component={SuperAdminDashboard} />
