@@ -14,12 +14,14 @@ import BusinessAdminDashboard from "@/pages/admin/business-dashboard";
 import CreateMission from "@/pages/admin/create-mission";
 import VerificationCenter from "@/pages/admin/verification-center";
 import Profile from "@/pages/profile";
+import Leaderboard from "@/pages/leaderboard";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/explore" component={Explore} />
+      <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/business" component={Business} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/mission/:id" component={MissionDetail} />

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { MapPin, Gift, Building2, User, Menu } from "lucide-react";
+import { MapPin, Gift, Building2, Trophy, Menu, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,6 +13,7 @@ export function Navbar() {
   const navItems = [
     { href: "/", label: "Home", icon: MapPin },
     { href: "/explore", label: "Explore", icon: MapPin },
+    { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
     { href: "/rewards", label: "Rewards", icon: Gift },
     { href: "/business", label: "For Business", icon: Building2 },
   ];
