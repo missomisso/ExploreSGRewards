@@ -26,13 +26,16 @@ function Router() {
       <Route path="/rewards" component={Rewards} />
       <Route path="/mission/:id" component={MissionDetail} />
       <Route path="/profile" component={Profile} />
-      
+
       {/* Admin Routes */}
       <Route path="/admin/super" component={SuperAdminDashboard} />
       <Route path="/admin/business" component={BusinessAdminDashboard} />
       <Route path="/admin/business/missions/new" component={CreateMission} />
-      <Route path="/admin/business/verification" component={VerificationCenter} />
-      
+      <Route
+        path="/admin/business/verification"
+        component={VerificationCenter}
+      />
+
       <Route component={NotFound} />
     </Switch>
   );
