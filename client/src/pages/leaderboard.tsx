@@ -1,3 +1,20 @@
+/**
+ * Leaderboard page component displaying global explorer rankings.
+ * 
+ * Features:
+ * - Top 3 podium display with animated avatars and special styling
+ * - Timeframe filtering (weekly, monthly, all-time)
+ * - Full ranked list of explorers (4-10) with points and badges
+ * - Sticky user rank indicator for mobile devices
+ * - Rank change indicators (up/down/same)
+ * - Responsive design optimized for mobile and desktop
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered leaderboard page with navigation, podium, rankings list, and sticky user indicator
+ * 
+ * @example
+ * export default function Leaderboard() { ... }
+ */
 import { useState } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

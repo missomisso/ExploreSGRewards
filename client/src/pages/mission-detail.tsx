@@ -1,3 +1,31 @@
+/**
+ * MissionDetail Component
+ * 
+ * A comprehensive mission detail page that displays interactive tasks for users to complete.
+ * Supports multiple task types including GPS verification, photo uploads, quizzes, QR code scanning,
+ * and receipt uploads. Tracks progress and rewards users with points upon completion.
+ * 
+ * @component
+ * @example
+ * return (
+ *   <MissionDetail />
+ * )
+ * 
+ * @returns {React.ReactElement} The rendered mission detail page with task list and completion dialog
+ * 
+ * @remarks
+ * - Uses mock data for demonstration purposes
+ * - Supports 5 task types: GPS, Photo, Quiz, QR Code, and Receipt
+ * - Implements smooth animations using Framer Motion
+ * - Displays progress bar that updates as tasks are completed
+ * - Shows completion dialog with rewards summary when all tasks are finished
+ * - Integrates toast notifications for user feedback
+ * 
+ * @state tasks - Array of tasks for the current mission
+ * @state activeTaskId - ID of currently expanded/active task
+ * @state isComplete - Boolean flag indicating if mission is fully completed
+ * @state isLoading - Boolean flag for async task completion operations
+ */
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Upload, MapPin, QrCode, CheckCircle2, Circle, HelpCircle, FileText, ArrowLeft, Loader2 } from "lucide-react";

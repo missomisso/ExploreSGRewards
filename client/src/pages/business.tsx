@@ -1,3 +1,24 @@
+/**
+ * Business partner landing page for ExploreSG Rewards
+ * 
+ * Displays a comprehensive B2B marketing page that highlights the value proposition
+ * for business partners to join the ExploreSG Rewards platform. Includes:
+ * - Hero section with call-to-action buttons
+ * - Three value proposition cards (foot traffic, exposure, insights)
+ * - Pricing section with feature list and dashboard preview
+ * 
+ * @component
+ * @returns {JSX.Element} The complete business landing page
+ * 
+ * @example
+ * ```tsx
+ * import Business from '@/pages/business';
+ * 
+ * export default function App() {
+ *   return <Business />;
+ * }
+ * ```
+ */
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

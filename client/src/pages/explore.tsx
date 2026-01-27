@@ -1,3 +1,34 @@
+/**
+ * Explore page component for browsing and discovering Singapore missions.
+ * 
+ * @component
+ * @returns {JSX.Element} The explore page with mission browsing interface
+ * 
+ * @description
+ * Displays a grid of missions with filtering, search, and sorting capabilities.
+ * Features include:
+ * - Search missions by title or description
+ * - Filter by category (Landmarks, Nature, Culture, Food, Shopping)
+ * - Sort by recommended, points (low to high), or points (high to low)
+ * - Add/remove missions to favorites with local storage persistence
+ * - Responsive grid layout with mission cards
+ * - Hero section showcasing featured mission
+ * 
+ * @example
+ * ```tsx
+ * import Explore from '@/pages/explore';
+ * 
+ * export default function App() {
+ *   return <Explore />;
+ * }
+ * ```
+ * 
+ * @remarks
+ * - Favorites are persisted in browser's localStorage
+ * - Missions are fetched from `/api/missions` endpoint using React Query
+ * - Uses Wouter for client-side routing to mission detail pages
+ * - Supports responsive design for mobile, tablet, and desktop viewports
+ */
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navbar } from "@/components/layout/navbar";
