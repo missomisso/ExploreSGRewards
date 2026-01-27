@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const isLoggedIn = true; // Mock state
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
 
   const navItems = [
     { href: "/", label: "Home", icon: MapPin },
@@ -50,20 +53,46 @@ export function Navbar() {
             </Link>
           ))}
           
-          {isLoggedIn ? (
-            <Link href="/profile">
-              <a className="ml-4 flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors">
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src="https://github.com/shadcn.png" />
-                  <AvatarFallback>AC</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium text-foreground">Alex Chen</span>
-              </a>
-            </Link>
+          {user ? (
+            <div className="ml-4 flex items-center gap-2">
+              <Link href="/profile">
+                <a className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={user.avatar || undefined} />
+                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium text-foreground">{user.name}</span>
+                </a>
+              </Link>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  try {
+                    await logout();
+                  } catch (error) {
+                    toast({
+                      title: "Logout failed",
+                      description: error instanceof Error ? error.message : "Please try again.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Log out
+              </Button>
+            </div>
           ) : (
-            <Button size="sm" className="ml-4">
-              Sign In
-            </Button>
+            <div className="ml-4 flex items-center gap-2">
+              <Link href="/login">
+                <Button size="sm" variant="outline">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button size="sm">Create Account</Button>
+              </Link>
+            </div>
           )}
         </div>
 
@@ -94,15 +123,51 @@ export function Navbar() {
                 ))}
                 
                 <div className="mt-4 border-t pt-4">
-                   <Link href="/profile">
-                     <a 
-                       onClick={() => setIsOpen(false)}
-                       className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md"
-                     >
-                       <User className="h-5 w-5" />
-                       My Profile
-                     </a>
-                   </Link>
+                  {user ? (
+                    <>
+                      <Link href="/profile">
+                        <a 
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md"
+                        >
+                          <User className="h-5 w-5" />
+                          My Profile
+                        </a>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await logout();
+                            setIsOpen(false);
+                          } catch (error) {
+                            toast({
+                              title: "Logout failed",
+                              description: error instanceof Error ? error.message : "Please try again.",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 hover:bg-muted rounded-md text-left"
+                      >
+                        <User className="h-5 w-5" />
+                        Log out
+                      </button>
+                    </>
+                  ) : (
+                    <div className="space-y-2 px-4">
+                      <Link href="/login">
+                        <Button variant="outline" className="w-full" onClick={() => setIsOpen(false)}>
+                          Sign In
+                        </Button>
+                      </Link>
+                      <Link href="/register">
+                        <Button className="w-full" onClick={() => setIsOpen(false)}>
+                          Create Account
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </div>
             </SheetContent>
