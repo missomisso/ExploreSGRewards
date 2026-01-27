@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -22,6 +23,8 @@ import {
   GripVertical
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import type { TaskDefinition } from "@shared/schema";
 
 type TaskType = "gps" | "photo" | "receipt" | "quiz" | "qrcode";
 
@@ -53,6 +56,7 @@ export default function CreateMission() {
   });
 
   const [tasks, setTasks] = useState<TaskDraft[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Task Builder State
   const [isAddingTask, setIsAddingTask] = useState(false);
@@ -96,13 +100,72 @@ export default function CreateMission() {
     return tasks.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Mission Created Successfully!",
-      description: "Your mission is now live and visible to tourists.",
-      className: "bg-green-600 text-white border-0",
-    });
-    setTimeout(() => setLocation("/admin/business"), 1500);
+  const createMission = useMutation({
+    mutationFn: async () => {
+      const mappedTasks: TaskDefinition[] = tasks.map((task) => ({
+        id: task.id,
+        type: task.type,
+        title: task.title,
+        description: task.description,
+        points: Number(task.points) || 0,
+        question: task.question,
+        options: task.options,
+        correctAnswer: task.correctOption,
+      }));
+
+      const payload = {
+        title: missionData.title.trim(),
+        description: missionData.description.trim(),
+        location: missionData.location.trim() || undefined,
+        totalPoints: calculateTotalPoints(),
+        startDate: missionData.startDate ? new Date(missionData.startDate).toISOString() : undefined,
+        endDate: missionData.endDate ? new Date(missionData.endDate).toISOString() : undefined,
+        tasks: mappedTasks,
+        status: "active",
+      };
+
+      const response = await apiRequest("POST", "/api/missions", payload);
+      return response.json();
+    },
+  });
+
+  const handleSave = async () => {
+    if (!missionData.title.trim() || !missionData.description.trim()) {
+      toast({
+        title: "Missing mission details",
+        description: "Add a title and description before publishing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (tasks.length === 0) {
+      toast({
+        title: "Add at least one task",
+        description: "Missions need tasks so visitors can earn points.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await createMission.mutateAsync();
+      toast({
+        title: "Mission Created Successfully!",
+        description: "Your mission is now live and visible to tourists.",
+        className: "bg-green-600 text-white border-0",
+      });
+      setTimeout(() => setLocation("/admin/business"), 1500);
+    } catch (error) {
+      toast({
+        title: "Mission creation failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -380,8 +443,8 @@ export default function CreateMission() {
               Next Step <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white">
-              Publish Mission <Save className="ml-2 h-4 w-4" />
+            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white" disabled={isSaving}>
+              {isSaving ? "Publishing..." : "Publish Mission"} <Save className="ml-2 h-4 w-4" />
             </Button>
           )}
         </div>

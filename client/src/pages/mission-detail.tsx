@@ -27,6 +27,7 @@
  * @state isLoading - Boolean flag for async task completion operations
  */
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Upload, MapPin, QrCode, CheckCircle2, Circle, HelpCircle, FileText, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,89 +36,46 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import type { Mission, TaskDefinition } from "@shared/schema";
 
 // Types for our tasks
 type TaskType = "gps" | "photo" | "receipt" | "quiz" | "qrcode";
 
-interface Task {
-  id: string;
-  type: TaskType;
-  title: string;
-  description: string;
-  points: number;
+interface Task extends TaskDefinition {
   completed: boolean;
-  // Optional properties for specific task types
-  quizQuestion?: string;
-  quizOptions?: string[];
-  correctAnswer?: number;
 }
 
-// Mock Data for the Mission
-const MOCK_MISSION = {
-  id: "gardens-by-the-bay",
-  title: "Gardens by the Bay Adventure",
-  description: "Complete these challenges to unlock the exclusive Supertree Grove Badge and 500 points!",
-  image: "/attached_assets/generated_images/singapore_skyline_with_gardens_by_the_bay_and_marina_bay_sands_in_a_lush,_futuristic_style.png",
-  totalPoints: 500,
-  tasks: [
-    {
-      id: "t1",
-      type: "gps",
-      title: "Check-in at Supertree Grove",
-      description: "Verify you are at the location to start.",
-      points: 50,
-      completed: false,
-    },
-    {
-      id: "t2",
-      type: "photo",
-      title: "Selfie with a Supertree",
-      description: "Take a creative selfie with the Supertrees in the background.",
-      points: 100,
-      completed: false,
-    },
-    {
-      id: "t3",
-      type: "quiz",
-      title: "Sustainability Trivia",
-      description: "Answer a quick question about the Gardens.",
-      points: 50,
-      completed: false,
-      quizQuestion: "How many Supertrees are there in the Gardens?",
-      quizOptions: ["12", "18", "25", "5"],
-      correctAnswer: 1, // Index of "18"
-    },
-    {
-      id: "t4",
-      type: "qrcode",
-      title: "Find the Hidden Code",
-      description: "Scan the QR code located near the OCBC Skyway entrance.",
-      points: 150,
-      completed: false,
-    },
-    {
-      id: "t5",
-      type: "receipt",
-      title: "Gift Shop Souvenir",
-      description: "Upload a receipt from the gift shop (min spend $10).",
-      points: 150,
-      completed: false,
-    },
-  ] as Task[],
-};
-
 export default function MissionDetail() {
-  const [tasks, setTasks] = useState<Task[]>(MOCK_MISSION.tasks);
+  const [, params] = useRoute("/mission/:id");
+  const missionId = params?.id ? Number(params.id) : null;
+  const { data: mission, isLoading: isMissionLoading, isError } = useQuery<Mission>({
+    queryKey: [`/api/missions/${missionId}`],
+    enabled: Boolean(missionId),
+  });
+
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    if (mission?.tasks) {
+      const mappedTasks = mission.tasks.map((task) => ({
+        ...task,
+        completed: false,
+      }));
+      setTasks(mappedTasks);
+      setActiveTaskId(null);
+      setIsComplete(false);
+    }
+  }, [mission]);
+
   const completedCount = tasks.filter(t => t.completed).length;
-  const progress = (completedCount / tasks.length) * 100;
+  const progress = tasks.length ? (completedCount / tasks.length) * 100 : 0;
 
   // Handlers for task completion
   const handleTaskComplete = (taskId: string) => {
@@ -183,9 +141,9 @@ export default function MissionDetail() {
       case "quiz":
         return (
            <div className="space-y-6">
-             <p className="font-medium text-lg">{task.quizQuestion}</p>
+             <p className="font-medium text-lg">{task.question}</p>
              <RadioGroup defaultValue="option-one">
-                {task.quizOptions?.map((option, idx) => (
+                {task.options?.map((option, idx) => (
                   <div key={idx} className="flex items-center space-x-2 border p-3 rounded-lg hover:bg-gray-50">
                     <RadioGroupItem value={`option-${idx}`} id={`option-${idx}`} />
                     <Label htmlFor={`option-${idx}`} className="flex-grow cursor-pointer">{option}</Label>
@@ -233,12 +191,29 @@ export default function MissionDetail() {
     }
   };
 
+  if (isMissionLoading) {
+    return (
+      <div className="min-h-screen bg-background font-sans flex items-center justify-center text-muted-foreground">
+        Loading mission...
+      </div>
+    );
+  }
+
+  if (isError || !mission) {
+    return (
+      <div className="min-h-screen bg-background font-sans flex flex-col items-center justify-center text-muted-foreground gap-4">
+        <p>We couldn't load this mission.</p>
+        <Button variant="outline" onClick={() => setLocation("/explore")}>Back to Explore</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
       {/* Header Image */}
       <div className="relative h-64 w-full">
         <div className="absolute inset-0">
-          <img src={MOCK_MISSION.image} alt="Mission" className="h-full w-full object-cover" />
+          <img src={mission.imageUrl || "/placeholder.jpg"} alt={mission.title} className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-background" />
         </div>
         <Link href="/explore">
@@ -247,8 +222,8 @@ export default function MissionDetail() {
           </Button>
         </Link>
         <div className="absolute bottom-0 left-0 p-6 w-full">
-           <h1 className="text-3xl font-heading font-bold text-foreground">{MOCK_MISSION.title}</h1>
-           <p className="text-muted-foreground text-sm mt-1 max-w-xl">{MOCK_MISSION.description}</p>
+           <h1 className="text-3xl font-heading font-bold text-foreground">{mission.title}</h1>
+           <p className="text-muted-foreground text-sm mt-1 max-w-xl">{mission.description}</p>
         </div>
       </div>
 
@@ -324,12 +299,12 @@ export default function MissionDetail() {
             </div>
             <DialogTitle className="text-2xl font-heading font-bold text-center">Mission Complete!</DialogTitle>
             <DialogDescription className="text-center text-base">
-              You've conquered the Gardens by the Bay mission.
+              You've conquered the {mission.title} mission.
             </DialogDescription>
           </DialogHeader>
           <div className="bg-gray-50 p-4 rounded-lg text-center my-2 dark:bg-gray-800">
              <p className="text-sm text-muted-foreground">Total Earned</p>
-             <p className="text-3xl font-bold text-primary mt-1">{MOCK_MISSION.totalPoints} Points</p>
+             <p className="text-3xl font-bold text-primary mt-1">{mission.totalPoints} Points</p>
           </div>
           <DialogFooter className="sm:justify-center">
             <Button className="w-full sm:w-auto" onClick={() => setLocation('/rewards')}>

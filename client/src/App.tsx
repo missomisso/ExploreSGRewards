@@ -15,6 +15,8 @@ import CreateMission from "@/pages/admin/create-mission";
 import VerificationCenter from "@/pages/admin/verification-center";
 import Profile from "@/pages/profile";
 import Leaderboard from "@/pages/leaderboard";
+import Login from "@/pages/login";
+import Register from "@/pages/register";
 
 function Router() {
   return (
@@ -26,6 +28,8 @@ function Router() {
       <Route path="/rewards" component={Rewards} />
       <Route path="/mission/:id" component={MissionDetail} />
       <Route path="/profile" component={Profile} />
+      <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
 
       {/* Admin Routes */}
       <Route path="/admin/super" component={SuperAdminDashboard} />

@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import { hashPassword } from "./auth";
 
 async function seed() {
   console.log("🌱 Seeding database...");
@@ -7,7 +8,8 @@ async function seed() {
   const user = await storage.createUser({
     name: "Alex Chen",
     email: "alex@example.com",
-    password: "demo123",
+    password: hashPassword("demo123"),
+    role: "user",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
     level: 3,
     points: 1250,

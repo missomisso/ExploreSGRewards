@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
+import { z } from "zod";
+import { hashPassword, sanitizeUser, verifyPassword } from "./auth";
 
 import { sql } from "drizzle-orm";
 import { db } from "./db";
@@ -39,6 +41,80 @@ export async function registerRoutes(
 
 
   
+  // ===== AUTH =====
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    res.json(sanitizeUser(user));
+  });
+
+  app.post("/api/auth/register", async (req, res) => {
+    const schema = z.object({
+      name: z.string().min(1),
+      email: z.string().email(),
+      password: z.string().min(6),
+      role: z.enum(["user", "business"]).default("user"),
+    });
+
+    try {
+      const { name, email, password, role } = schema.parse(req.body);
+      const existing = await storage.getUserByEmail(email);
+      if (existing) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      const newUser = await storage.createUser(
+        insertUserSchema.parse({
+          name,
+          email,
+          password: hashPassword(password),
+          role,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+          level: 1,
+          points: 0,
+        }),
+      );
+
+      req.session.userId = newUser.id;
+      res.status(201).json(sanitizeUser(newUser));
+    } catch (error) {
+      res.status(400).json({ error: "Invalid registration data" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    const schema = z.object({
+      email: z.string().email(),
+      password: z.string().min(1),
+    });
+
+    try {
+      const { email, password } = schema.parse(req.body);
+      const user = await storage.getUserByEmail(email);
+      if (!user || !verifyPassword(password, user.password)) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      req.session.userId = user.id;
+      res.json(sanitizeUser(user));
+    } catch (error) {
+      res.status(400).json({ error: "Invalid login data" });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    req.session.destroy(() => {
+      res.json({ ok: true });
+    });
+  });
+
   // ===== MISSIONS =====
   app.get("/api/missions", async (req, res) => {
     try {
