@@ -34,16 +34,15 @@ export function useSupabaseAuth() {
   
   const supabaseRef = useRef<SupabaseClient | null>(null);
 
-  const syncUserToDatabase = useCallback(async (supabaseUser: SupabaseUser) => {
+  const syncUserToDatabase = useCallback(async (supabaseUser: SupabaseUser, accessToken: string) => {
     try {
       const response = await fetch("/api/auth/sync", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          id: supabaseUser.id,
-          email: supabaseUser.email,
           firstName: supabaseUser.user_metadata?.first_name || supabaseUser.user_metadata?.full_name?.split(" ")[0] || null,
           lastName: supabaseUser.user_metadata?.last_name || supabaseUser.user_metadata?.full_name?.split(" ").slice(1).join(" ") || null,
           profileImageUrl: supabaseUser.user_metadata?.avatar_url || null,
@@ -68,8 +67,8 @@ export function useSupabaseAuth() {
       
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session?.user) {
-        const dbUser = await syncUserToDatabase(session.user);
+      if (session?.user && session.access_token) {
+        const dbUser = await syncUserToDatabase(session.user, session.access_token);
         setState({
           user: dbUser,
           supabaseUser: session.user,
@@ -89,8 +88,8 @@ export function useSupabaseAuth() {
 
       const { data } = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          if (session?.user) {
-            const dbUser = await syncUserToDatabase(session.user);
+          if (session?.user && session.access_token) {
+            const dbUser = await syncUserToDatabase(session.user, session.access_token);
             setState({
               user: dbUser,
               supabaseUser: session.user,

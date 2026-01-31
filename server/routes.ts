@@ -1,12 +1,41 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import { verifySupabaseToken } from "./supabase";
 
 import { sql } from "drizzle-orm";
 import { db } from "./db";
+
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
+      userEmail?: string;
+    }
+  }
+}
+
+async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "No authorization token provided" });
+  }
+
+  const token = authHeader.substring(7);
+  const user = await verifySupabaseToken(token);
+
+  if (!user) {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+
+  req.userId = user.id;
+  req.userEmail = user.email;
+  next();
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -42,31 +71,44 @@ export async function registerRoutes(
   // ===== SUPABASE AUTH SYNC =====
   app.post("/api/auth/sync", async (req, res) => {
     try {
-      const { id, email, firstName, lastName, profileImageUrl } = req.body;
-
-      if (!id) {
-        return res.status(400).json({ error: "User ID is required" });
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "No authorization token provided" });
       }
+
+      const token = authHeader.substring(7);
+      const supabaseUser = await verifySupabaseToken(token);
+
+      if (!supabaseUser) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      // Derive identity from verified token, only allow limited profile fields from request
+      const { firstName, lastName, profileImageUrl } = req.body;
+      
+      const id = supabaseUser.id;
+      const email = supabaseUser.email;
 
       // Check if user exists
       let user = await storage.getUser(id);
 
       if (user) {
-        // Update existing user
+        // Update existing user with only allowed fields
         user = await storage.updateUser(id, {
           email,
-          firstName,
-          lastName,
-          profileImageUrl,
+          firstName: firstName || supabaseUser.user_metadata?.first_name || user.firstName,
+          lastName: lastName || supabaseUser.user_metadata?.last_name || user.lastName,
+          profileImageUrl: profileImageUrl || supabaseUser.user_metadata?.avatar_url || user.profileImageUrl,
         });
       } else {
         // Create new user
         user = await storage.createUser({
           id,
           email,
-          firstName,
-          lastName,
-          profileImageUrl,
+          firstName: firstName || supabaseUser.user_metadata?.first_name || supabaseUser.user_metadata?.full_name?.split(" ")[0] || null,
+          lastName: lastName || supabaseUser.user_metadata?.last_name || supabaseUser.user_metadata?.full_name?.split(" ").slice(1).join(" ") || null,
+          profileImageUrl: profileImageUrl || supabaseUser.user_metadata?.avatar_url || null,
           role: "tourist",
           level: 1,
           points: 0,

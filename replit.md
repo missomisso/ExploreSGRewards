@@ -60,16 +60,20 @@ shared/          # Shared code between client/server
 - **Connection**: Requires `DATABASE_URL` environment variable
 
 ### Authentication & Backend Services
-- **Replit Auth**: OpenID Connect authentication (Google, GitHub, Apple, email/password)
+- **Supabase Auth**: Authentication via Supabase (email/password, Google OAuth, GitHub OAuth)
 - **Session Storage**: PostgreSQL-backed sessions via `connect-pg-simple`
-- **Auth Files**: `server/replit_integrations/auth/` contains auth setup
-- **Client Hook**: `client/src/hooks/use-auth.ts` for React components
-- **Routes**: `/api/login`, `/api/logout`, `/api/auth/user`
+- **Auth Files**: 
+  - `server/supabase.ts` - Supabase admin client and JWT verification
+  - `client/src/hooks/use-supabase-auth.ts` - React auth hook
+  - `client/src/pages/auth/` - Login, Signup, and OAuth callback pages
+- **Client Hook**: `client/src/hooks/use-auth.ts` exports useSupabaseAuth
+- **Auth Routes**: `/auth/login`, `/auth/signup`, `/auth/callback`
+- **API Routes**: `/api/auth/sync` (syncs authenticated user to database), `/api/config/supabase` (provides Supabase config to frontend)
 
 ### Database Connection
 - **Supabase PostgreSQL**: User's own Supabase database via DATABASE_URL
 - **SSL Workaround**: Using `NODE_TLS_REJECT_UNAUTHORIZED=0` for Supabase SSL
-- **Environment Variables**: `DATABASE_URL`, `SESSION_SECRET`
+- **Environment Variables**: `DATABASE_URL`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
 
 ### Frontend Libraries
 - **Radix UI**: Complete primitive component set for accessibility
