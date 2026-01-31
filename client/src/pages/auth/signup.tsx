@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Signup() {
   const [, setLocation] = useLocation();
-  const { signUp, signInWithGoogle, signInWithGithub, isAuthenticated } = useSupabaseAuth();
+  const { signUp, signInWithGoogle, signInWithGithub, isAuthenticated, user, getRedirectPath } = useSupabaseAuth();
   const { toast } = useToast();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -21,8 +21,8 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  if (isAuthenticated) {
-    setLocation("/");
+  if (isAuthenticated && user) {
+    setLocation(getRedirectPath());
     return null;
   }
 

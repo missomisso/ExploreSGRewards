@@ -190,6 +190,18 @@ export function useSupabaseAuth() {
     return { data, error };
   };
 
+  const getRedirectPath = useCallback(() => {
+    if (!state.user) return "/";
+    switch (state.user.role) {
+      case "admin":
+        return "/admin/super";
+      case "business":
+        return "/admin/business";
+      default:
+        return "/";
+    }
+  }, [state.user]);
+
   return {
     ...state,
     signUp,
@@ -199,5 +211,6 @@ export function useSupabaseAuth() {
     signOut,
     resetPassword,
     logout: signOut,
+    getRedirectPath,
   };
 }

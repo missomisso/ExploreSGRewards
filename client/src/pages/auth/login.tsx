@@ -11,15 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const { signIn, signInWithGoogle, signInWithGithub, isAuthenticated } = useSupabaseAuth();
+  const { signIn, signInWithGoogle, signInWithGithub, isAuthenticated, user, getRedirectPath } = useSupabaseAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  if (isAuthenticated) {
-    setLocation("/");
+  if (isAuthenticated && user) {
+    setLocation(getRedirectPath());
     return null;
   }
 
@@ -48,7 +48,6 @@ export default function Login() {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      setLocation("/");
     }
 
     setIsLoading(false);

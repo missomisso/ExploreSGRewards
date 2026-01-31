@@ -364,5 +364,22 @@ export async function registerRoutes(
     }
   });
 
+  // ===== LEADERBOARD =====
+  app.get("/api/leaderboard", async (_req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT id, first_name, last_name, profile_image_url, points, level, role
+        FROM users
+        WHERE role = 'tourist'
+        ORDER BY points DESC
+        LIMIT 50
+      `);
+      const users = (result as any).rows || result;
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
   return httpServer;
 }

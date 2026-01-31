@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,30 +16,74 @@ import {
   LogOut, 
   ChevronRight,
   History,
-  Ticket
+  Ticket,
+  Loader2
 } from "lucide-react";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Profile() {
-  const user = {
-    name: "Alex Chen",
-    email: "alex.chen@example.com",
-    level: 3,
-    points: 1250,
-    nextLevelPoints: 2000,
-    joinedDate: "Nov 2023"
+  const { user, isAuthenticated, isLoading: authLoading, logout } = useSupabaseAuth();
+  const [, setLocation] = useLocation();
+
+  const { data: userRewards = [] } = useQuery({
+    queryKey: ["/api/user-rewards", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/user-rewards/${user.id}`);
+      if (!res.ok) throw new Error("Failed to fetch user rewards");
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: userMissions = [] } = useQuery({
+    queryKey: ["/api/user-missions", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/user-missions/${user.id}`);
+      if (!res.ok) throw new Error("Failed to fetch user missions");
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/");
   };
 
-  const history = [
-    { id: 1, type: "mission", title: "Gardens by the Bay Adventure", points: "+500", date: "2 hours ago", status: "Completed" },
-    { id: 2, type: "reward", title: "1-for-1 Bubble Tea", points: "-500", date: "1 day ago", status: "Redeemed" },
-    { id: 3, type: "mission", title: "Maxwell Food Centre Feast", points: "+350", date: "3 days ago", status: "Completed" },
-    { id: 4, type: "mission", title: "National Gallery Tour", points: "+400", date: "1 week ago", status: "Completed" },
-  ];
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background font-sans pb-20">
+        <Navbar />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--brand)]" />
+        </div>
+      </div>
+    );
+  }
 
-  const vouchers = [
-    { id: 1, title: "1-for-1 Bubble Tea", merchant: "LiHO Tea", expiry: "Valid until 30 Dec", code: "BUBBLE50", used: false },
-    { id: 2, title: "$5 Off Laksa", merchant: "328 Katong Laksa", expiry: "Valid until 15 Dec", code: "LAKSA05", used: false },
-  ];
+  if (!isAuthenticated || !user) {
+    return (
+      <div className="min-h-screen bg-background font-sans pb-20">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold mb-4">Please Log In</h1>
+          <p className="text-muted-foreground mb-6">You need to be logged in to view your profile.</p>
+          <Link href="/auth/login">
+            <Button>Go to Login</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const nextLevelPoints = (user.level || 1) * 1000;
+  const progressPercent = Math.min((user.points / nextLevelPoints) * 100, 100);
+
+  const completedMissions = userMissions.filter((m: any) => m.status === "completed");
+  const activeVouchers = userRewards.filter((r: any) => !r.used);
 
   return (
     <div className="min-h-screen bg-background font-sans pb-20">
@@ -50,22 +94,24 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative">
               <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback>AC</AvatarFallback>
+                <AvatarImage src={user.profileImageUrl || "https://github.com/shadcn.png"} />
+                <AvatarFallback>{(user.firstName || "U").charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="absolute bottom-0 right-0 bg-accent text-accent-foreground text-xs font-bold px-2 py-1 rounded-full border border-white shadow-sm">
-                Lvl {user.level}
+                Lvl {user.level || 1}
               </div>
             </div>
             
             <div className="text-center md:text-left flex-1">
-              <h1 className="text-2xl font-heading font-bold">{user.name}</h1>
-              <p className="text-muted-foreground text-sm mb-3">Member since {user.joinedDate}</p>
+              <h1 className="text-2xl font-heading font-bold">
+                {user.firstName || "Explorer"} {user.lastName || ""}
+              </h1>
+              <p className="text-muted-foreground text-sm mb-3">{user.email}</p>
               
               <div className="flex items-center justify-center md:justify-start gap-4 text-sm">
                 <div className="flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border">
                   <Trophy className="h-4 w-4 text-yellow-500" />
-                  <span className="font-bold">{user.points}</span> Points
+                  <span className="font-bold">{user.points || 0}</span> Points
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <MapPin className="h-4 w-4" />
@@ -76,12 +122,12 @@ export default function Profile() {
 
             <div className="w-full md:w-64 bg-white p-4 rounded-xl shadow-sm border">
               <div className="flex justify-between text-xs mb-2 font-medium">
-                <span>Progress to Level {user.level + 1}</span>
-                <span className="text-primary">{Math.round((user.points / user.nextLevelPoints) * 100)}%</span>
+                <span>Progress to Level {(user.level || 1) + 1}</span>
+                <span className="text-primary">{Math.round(progressPercent)}%</span>
               </div>
-              <Progress value={(user.points / user.nextLevelPoints) * 100} className="h-2" />
+              <Progress value={progressPercent} className="h-2" />
               <p className="text-xs text-muted-foreground mt-2 text-right">
-                {user.nextLevelPoints - user.points} points to go
+                {nextLevelPoints - (user.points || 0)} points to go
               </p>
             </div>
           </div>
@@ -98,32 +144,27 @@ export default function Profile() {
 
           <TabsContent value="wallet" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="font-heading text-xl font-bold mb-4 flex items-center gap-2">
-              <Ticket className="h-5 w-5" /> Active Vouchers
+              <Ticket className="h-5 w-5" /> Active Vouchers ({activeVouchers.length})
             </h2>
-            {vouchers.length > 0 ? (
+            {activeVouchers.length > 0 ? (
               <div className="grid md:grid-cols-2 gap-4">
-                {vouchers.map((voucher) => (
+                {activeVouchers.map((voucher: any) => (
                   <Card key={voucher.id} className="overflow-hidden border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow">
                     <CardContent className="p-0 flex">
                       <div className="flex-1 p-4">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h3 className="font-bold text-lg">{voucher.title}</h3>
-                            <p className="text-sm text-muted-foreground">{voucher.merchant}</p>
+                            <h3 className="font-bold text-lg">Reward #{voucher.rewardId}</h3>
+                            <p className="text-sm text-muted-foreground">Code: {voucher.code}</p>
                           </div>
                           <Badge variant="secondary" className="bg-green-100 text-green-700 border-0">Active</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mb-4">{voucher.expiry}</p>
+                        <p className="text-xs text-muted-foreground mb-4">
+                          Expires: {new Date(voucher.expiresAt).toLocaleDateString()}
+                        </p>
                         <Button size="sm" className="w-full gap-2">
                           <QrCode className="h-4 w-4" /> Show Code
                         </Button>
-                      </div>
-                      <div className="w-12 bg-gray-50 border-l flex items-center justify-center relative">
-                        <div className="absolute -top-2 -left-2 w-4 h-4 bg-background rounded-full border border-gray-200" />
-                        <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-background rounded-full border border-gray-200" />
-                        <span className="writing-mode-vertical text-xs text-muted-foreground font-mono tracking-widest rotate-180">
-                          {voucher.code}
-                        </span>
                       </div>
                     </CardContent>
                   </Card>
@@ -141,29 +182,32 @@ export default function Profile() {
 
           <TabsContent value="history" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h2 className="font-heading text-xl font-bold mb-4 flex items-center gap-2">
-              <History className="h-5 w-5" /> Recent Activity
+              <History className="h-5 w-5" /> Completed Missions ({completedMissions.length})
             </h2>
             <Card>
               <CardContent className="p-0">
-                {history.map((item, idx) => (
-                  <div key={item.id} className={`flex items-center justify-between p-4 ${idx !== history.length - 1 ? 'border-b' : ''}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${item.type === 'mission' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
-                        {item.type === 'mission' ? <MapPin className="h-5 w-5" /> : <Trophy className="h-5 w-5" />}
+                {completedMissions.length > 0 ? (
+                  completedMissions.map((mission: any, idx: number) => (
+                    <div key={mission.id} className={`flex items-center justify-between p-4 ${idx !== completedMissions.length - 1 ? 'border-b' : ''}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full flex items-center justify-center bg-green-100 text-green-600">
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">Mission #{mission.missionId}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Completed: {mission.completedAt ? new Date(mission.completedAt).toLocaleDateString() : "N/A"}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.date}</p>
-                      </div>
+                      <Badge className="bg-green-100 text-green-700">Completed</Badge>
                     </div>
-                    <div className="text-right">
-                      <span className={`font-bold text-sm ${item.points.startsWith('+') ? 'text-green-600' : 'text-orange-600'}`}>
-                        {item.points}
-                      </span>
-                      <p className="text-xs text-muted-foreground">{item.status}</p>
-                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No completed missions yet. Start exploring!
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -176,19 +220,17 @@ export default function Profile() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between py-2 border-b">
                   <div>
-                    <p className="font-medium">Push Notifications</p>
-                    <p className="text-sm text-muted-foreground">Receive alerts about new missions</p>
+                    <p className="font-medium">Email</p>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
-                  <Badge>Enabled</Badge>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b">
                   <div>
-                    <p className="font-medium">Email Preferences</p>
-                    <p className="text-sm text-muted-foreground">Weekly summary and rewards</p>
+                    <p className="font-medium">Role</p>
+                    <p className="text-sm text-muted-foreground capitalize">{user.role}</p>
                   </div>
-                  <Badge variant="outline">Weekly</Badge>
                 </div>
-                <Button variant="destructive" className="w-full mt-4 gap-2">
+                <Button variant="destructive" className="w-full mt-4 gap-2" onClick={handleLogout}>
                   <LogOut className="h-4 w-4" /> Sign Out
                 </Button>
               </CardContent>

@@ -19,7 +19,8 @@ import {
   Plus, 
   Trash2,
   Save,
-  GripVertical
+  GripVertical,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -96,13 +97,64 @@ export default function CreateMission() {
     return tasks.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Mission Created Successfully!",
-      description: "Your mission is now live and visible to tourists.",
-      className: "bg-green-600 text-white border-0",
-    });
-    setTimeout(() => setLocation("/admin/business"), 1500);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!missionData.title || tasks.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please add a title and at least one task.",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const missionPayload = {
+        title: missionData.title,
+        description: missionData.description,
+        location: missionData.location,
+        totalPoints: calculateTotalPoints(),
+        category: "General",
+        status: "active",
+        tasks: tasks.map((t, idx) => ({
+          id: (idx + 1).toString(),
+          type: t.type,
+          title: t.title,
+          description: t.description,
+          points: t.points,
+          question: t.question,
+          options: t.options,
+          correctAnswer: t.correctOption,
+        })),
+        startDate: missionData.startDate ? new Date(missionData.startDate) : null,
+        endDate: missionData.endDate ? new Date(missionData.endDate) : null,
+      };
+
+      const response = await fetch("/api/missions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(missionPayload),
+      });
+
+      if (!response.ok) throw new Error("Failed to create mission");
+
+      toast({
+        title: "Mission Created Successfully!",
+        description: "Your mission is now live and visible to tourists.",
+        className: "bg-green-600 text-white border-0",
+      });
+      setTimeout(() => setLocation("/admin/business"), 1500);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create mission. Please try again.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -380,8 +432,9 @@ export default function CreateMission() {
               Next Step <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white">
-              Publish Mission <Save className="ml-2 h-4 w-4" />
+            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white" disabled={isSaving}>
+              {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="ml-2 h-4 w-4" />}
+              {isSaving ? "Publishing..." : "Publish Mission"}
             </Button>
           )}
         </div>
