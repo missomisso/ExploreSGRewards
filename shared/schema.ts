@@ -83,6 +83,8 @@ export const rewards = pgTable("rewards", {
   icon: text("icon"),
   category: text("category"),
   expiryDays: integer("expiry_days").default(30),
+  quantityLimit: integer("quantity_limit"), // null = unlimited
+  businessId: varchar("business_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

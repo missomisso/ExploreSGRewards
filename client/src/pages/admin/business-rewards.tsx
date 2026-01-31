@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -45,10 +45,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
-export default function SuperRewards() {
+export default function BusinessRewards() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { session } = useSupabaseAuth();
+  const { user, session } = useSupabaseAuth();
   const [search, setSearch] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newReward, setNewReward] = useState({
@@ -70,6 +70,21 @@ export default function SuperRewards() {
     },
   });
 
+  const { data: dbUser } = useQuery({
+    queryKey: ["/api/users", user?.id],
+    queryFn: async () => {
+      if (!user?.id || !session?.access_token) return null;
+      const res = await fetch(`/api/users/${user.id}`, {
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user?.id && !!session?.access_token,
+  });
+
+  const businessName = dbUser?.businessName || dbUser?.business_name || "Your Business";
+
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await fetch("/api/rewards", {
@@ -78,7 +93,11 @@ export default function SuperRewards() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          merchant: businessName,
+          businessId: user?.id,
+        }),
       });
       if (!res.ok) throw new Error("Failed to create reward");
       return res.json();
@@ -97,7 +116,7 @@ export default function SuperRewards() {
       });
       toast({
         title: "Reward Created",
-        description: "The new reward is now available.",
+        description: "Your new reward is now available for tourists.",
         className: "bg-green-600 text-white border-0",
       });
     },
@@ -125,29 +144,32 @@ export default function SuperRewards() {
     },
   });
 
-  const filteredRewards = rewards.filter((r: any) =>
-    r.title?.toLowerCase().includes(search.toLowerCase()) ||
-    r.merchant?.toLowerCase().includes(search.toLowerCase())
+  const myRewards = rewards.filter((r: any) => 
+    r.business_id === user?.id || r.businessId === user?.id ||
+    r.merchant?.toLowerCase() === businessName?.toLowerCase()
+  );
+
+  const filteredRewards = myRewards.filter((r: any) =>
+    r.title?.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleCreate = () => {
-    if (!newReward.title || !newReward.merchant) {
+    if (!newReward.title) {
       toast({
         variant: "destructive",
         title: "Missing information",
-        description: "Please fill in all required fields.",
+        description: "Please enter a title for the reward.",
       });
       return;
     }
     createMutation.mutate(newReward);
   };
 
-  const totalClaimed = rewards.reduce((sum: number, r: any) => sum + (r.claimedCount || 0), 0);
-  const soldOutCount = rewards.filter((r: any) => r.isSoldOut).length;
+  const totalClaimed = myRewards.reduce((sum: number, r: any) => sum + (r.claimedCount || 0), 0);
 
   if (isLoading) {
     return (
-      <AdminLayout type="super">
+      <AdminLayout type="business">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--brand)]" />
         </div>
@@ -156,17 +178,17 @@ export default function SuperRewards() {
   }
 
   return (
-    <AdminLayout type="super">
+    <AdminLayout type="business">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <Link href="/admin/super">
+          <Link href="/admin/business">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-heading font-bold">Rewards Management</h1>
-            <p className="text-muted-foreground">Create and manage platform rewards.</p>
+            <h1 className="text-3xl font-heading font-bold">My Rewards</h1>
+            <p className="text-muted-foreground">Create and manage rewards for {businessName}.</p>
           </div>
         </div>
         <Button className="gap-2" onClick={() => setShowCreateDialog(true)}>
@@ -174,30 +196,24 @@ export default function SuperRewards() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{rewards.length}</div>
-            <p className="text-muted-foreground text-sm">Total Rewards</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-primary">
-              {rewards.reduce((sum: number, r: any) => sum + (r.cost || 0), 0)}
-            </div>
-            <p className="text-muted-foreground text-sm">Total Point Value</p>
+            <div className="text-2xl font-bold">{myRewards.length}</div>
+            <p className="text-muted-foreground text-sm">Active Rewards</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold text-green-600">{totalClaimed}</div>
-            <p className="text-muted-foreground text-sm">Total Claimed</p>
+            <p className="text-muted-foreground text-sm">Total Redeemed</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">{soldOutCount}</div>
+            <div className="text-2xl font-bold text-red-600">
+              {myRewards.filter((r: any) => r.isSoldOut).length}
+            </div>
             <p className="text-muted-foreground text-sm">Sold Out</p>
           </CardContent>
         </Card>
@@ -221,8 +237,8 @@ export default function SuperRewards() {
           {filteredRewards.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Gift className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-bold">No rewards found</h3>
-              <p className="text-muted-foreground mb-4">Create your first reward to get started.</p>
+              <h3 className="text-lg font-bold">No rewards yet</h3>
+              <p className="text-muted-foreground mb-4">Create your first reward to attract tourists.</p>
               <Button onClick={() => setShowCreateDialog(true)}>Create Reward</Button>
             </div>
           ) : (
@@ -230,7 +246,6 @@ export default function SuperRewards() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Reward</TableHead>
-                  <TableHead>Merchant</TableHead>
                   <TableHead>Cost</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Claimed</TableHead>
@@ -253,7 +268,6 @@ export default function SuperRewards() {
                           {reward.description}
                         </div>
                       </TableCell>
-                      <TableCell>{reward.merchant}</TableCell>
                       <TableCell className="font-bold text-primary">
                         {reward.cost} pts
                       </TableCell>
@@ -324,12 +338,12 @@ export default function SuperRewards() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
+              <Label htmlFor="title">Reward Title *</Label>
               <Input
                 id="title"
                 value={newReward.title}
                 onChange={(e) => setNewReward({ ...newReward, title: e.target.value })}
-                placeholder="e.g., 1-for-1 Bubble Tea"
+                placeholder="e.g., 10% Off Next Visit"
               />
             </div>
             <div className="space-y-2">
@@ -338,16 +352,7 @@ export default function SuperRewards() {
                 id="description"
                 value={newReward.description}
                 onChange={(e) => setNewReward({ ...newReward, description: e.target.value })}
-                placeholder="Describe the reward..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="merchant">Merchant *</Label>
-              <Input
-                id="merchant"
-                value={newReward.merchant}
-                onChange={(e) => setNewReward({ ...newReward, merchant: e.target.value })}
-                placeholder="e.g., LiHO Tea"
+                placeholder="Describe what tourists will receive..."
               />
             </div>
             <div className="grid grid-cols-3 gap-4">
@@ -361,7 +366,7 @@ export default function SuperRewards() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="expiry">Expiry (days)</Label>
+                <Label htmlFor="expiry">Valid For (days)</Label>
                 <Input
                   id="expiry"
                   type="number"
@@ -374,7 +379,7 @@ export default function SuperRewards() {
                 <Input
                   id="quantity"
                   type="number"
-                  placeholder="Unlimited"
+                  placeholder="No limit"
                   value={newReward.quantityLimit ?? ""}
                   onChange={(e) => setNewReward({ 
                     ...newReward, 

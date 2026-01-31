@@ -458,16 +458,49 @@ export async function registerRoutes(
   // ===== REWARDS =====
   app.get("/api/rewards", async (req, res) => {
     try {
-      const rewards = await storage.getRewards();
+      const result = await db.execute(sql`
+        SELECT 
+          r.*,
+          COALESCE(COUNT(ur.id), 0) as claimed_count
+        FROM rewards r
+        LEFT JOIN user_rewards ur ON r.id = ur.reward_id
+        GROUP BY r.id
+        ORDER BY r.created_at DESC
+      `);
+      const rewards = ((result as any).rows || result).map((r: any) => ({
+        ...r,
+        claimedCount: Number(r.claimed_count) || 0,
+        remainingQuantity: r.quantity_limit ? Math.max(0, r.quantity_limit - (Number(r.claimed_count) || 0)) : null,
+        isSoldOut: r.quantity_limit ? (Number(r.claimed_count) || 0) >= r.quantity_limit : false,
+      }));
       res.json(rewards);
     } catch (error) {
+      console.error("Error fetching rewards:", error);
       res.status(500).json({ error: "Failed to fetch rewards" });
     }
   });
 
   app.post("/api/rewards", async (req, res) => {
     try {
-      const validated = insertRewardSchema.parse(req.body);
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      const currentUser = await storage.getUser(authUser.id);
+      if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "business")) {
+        return res.status(403).json({ error: "Admin or business access required" });
+      }
+
+      const validated = insertRewardSchema.parse({
+        ...req.body,
+        businessId: currentUser.role === "business" ? authUser.id : req.body.businessId,
+        merchant: currentUser.role === "business" ? (currentUser.businessName || req.body.merchant) : req.body.merchant,
+      });
       const reward = await storage.createReward(validated);
       res.status(201).json(reward);
     } catch (error) {
@@ -477,7 +510,29 @@ export async function registerRoutes(
 
   app.delete("/api/rewards/:id", async (req, res) => {
     try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      const currentUser = await storage.getUser(authUser.id);
+      if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "business")) {
+        return res.status(403).json({ error: "Admin or business access required" });
+      }
+
       const id = parseInt(req.params.id);
+      const reward = await storage.getReward(id);
+      if (!reward) {
+        return res.status(404).json({ error: "Reward not found" });
+      }
+      if (currentUser.role === "business" && reward.businessId !== authUser.id) {
+        return res.status(403).json({ error: "Cannot delete other businesses' rewards" });
+      }
+
       await storage.deleteReward(id);
       res.json({ success: true });
     } catch (error) {
@@ -498,6 +553,17 @@ export async function registerRoutes(
 
       if (user.points < reward.cost) {
         return res.status(400).json({ error: "Insufficient points" });
+      }
+
+      // Check quantity limit
+      if (reward.quantityLimit) {
+        const claimedResult = await db.execute(sql`
+          SELECT COUNT(*) as count FROM user_rewards WHERE reward_id = ${rewardId}
+        `);
+        const claimedCount = Number(((claimedResult as any).rows || claimedResult)[0]?.count || 0);
+        if (claimedCount >= reward.quantityLimit) {
+          return res.status(400).json({ error: "This reward is sold out" });
+        }
       }
 
       // Deduct points

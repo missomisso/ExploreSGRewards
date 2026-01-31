@@ -38,6 +38,7 @@ export function AdminLayout({ children, type }: AdminLayoutProps) {
   const businessAdminNav = [
     { href: "/admin/business", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/business/missions", label: "Missions", icon: ClipboardList },
+    { href: "/admin/business/rewards", label: "Rewards", icon: Gift },
     { href: "/admin/business/verification", label: "Verifications", icon: CheckSquare },
     { href: "/admin/business/settings", label: "Settings", icon: Settings },
   ];

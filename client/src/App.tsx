@@ -19,6 +19,7 @@ import BusinessSettings from "@/pages/admin/business-settings";
 import SuperUsers from "@/pages/admin/super-users";
 import SuperBusinesses from "@/pages/admin/super-businesses";
 import SuperRewards from "@/pages/admin/super-rewards";
+import BusinessRewards from "@/pages/admin/business-rewards";
 import Profile from "@/pages/profile";
 import Leaderboard from "@/pages/leaderboard";
 import Login from "@/pages/auth/login";
@@ -47,6 +48,7 @@ function Router() {
       <Route path="/admin/business/missions/new" component={CreateMission} />
       <Route path="/admin/business/missions/:id/edit" component={EditMission} />
       <Route path="/admin/business/verification" component={VerificationCenter} />
+      <Route path="/admin/business/rewards" component={BusinessRewards} />
       <Route path="/admin/business/settings" component={BusinessSettings} />
 
       {/* Super Admin Routes */}
