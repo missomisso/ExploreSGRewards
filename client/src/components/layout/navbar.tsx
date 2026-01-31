@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { MapPin, Gift, Building2, Trophy, Menu, User, LogOut } from "lucide-react";
+import { MapPin, Gift, Building2, Trophy, Menu, User, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -82,6 +82,16 @@ export function Navbar() {
             <div className="ml-4 h-8 w-24 animate-pulse bg-gray-200 rounded-full" />
           ) : isAuthenticated && user ? (
             <div className="flex items-center gap-2 ml-4">
+              {(user.role === "admin" || user.role === "business") && (
+                <Link 
+                  href={user.role === "admin" ? "/admin/super" : "/admin/business"} 
+                  className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors mr-2"
+                  data-testid="link-admin"
+                >
+                  <Settings className="h-4 w-4" />
+                  Admin
+                </Link>
+              )}
               <Link href="/profile" className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors">
                 <Avatar className="h-6 w-6">
                   <AvatarImage src={user.profileImageUrl || undefined} />
@@ -135,6 +145,17 @@ export function Navbar() {
                 <div className="mt-4 border-t pt-4">
                   {isAuthenticated && user ? (
                     <>
+                      {(user.role === "admin" || user.role === "business") && (
+                        <Link
+                          href={user.role === "admin" ? "/admin/super" : "/admin/business"}
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md text-primary font-medium"
+                          data-testid="link-admin-mobile"
+                        >
+                          <Settings className="h-5 w-5" />
+                          Admin Dashboard
+                        </Link>
+                      )}
                       <Link
                         href="/profile"
                         onClick={() => setIsOpen(false)}

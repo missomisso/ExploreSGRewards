@@ -24,7 +24,7 @@ import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 export default function BusinessSettings() {
   const { toast } = useToast();
-  const { user } = useSupabaseAuth();
+  const { user, session } = useSupabaseAuth();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
@@ -38,12 +38,14 @@ export default function BusinessSettings() {
   const { data: userData, isLoading } = useQuery({
     queryKey: ["/api/users", user?.id],
     queryFn: async () => {
-      if (!user?.id) return null;
-      const res = await fetch(`/api/users/${user.id}`);
+      if (!user?.id || !session?.access_token) return null;
+      const res = await fetch(`/api/users/${user.id}`, {
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!session?.access_token,
   });
 
   useEffect(() => {
@@ -59,9 +61,14 @@ export default function BusinessSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: typeof businessData) => {
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
       const res = await fetch(`/api/users/${user?.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify({
           firstName: data.firstName,
           lastName: data.lastName,

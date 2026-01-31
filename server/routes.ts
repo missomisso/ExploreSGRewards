@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
-import { verifySupabaseToken } from "./supabase";
+import { verifySupabaseToken, supabaseAdmin } from "./supabase";
 
 import { sql } from "drizzle-orm";
 import { db } from "./db";
@@ -104,7 +104,25 @@ export async function registerRoutes(
   // Get current user by ID (for client-side auth checks)
   app.get("/api/auth/user/:id", async (req, res) => {
     try {
-      const user = await storage.getUser(req.params.id);
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      
+      const requestedId = req.params.id;
+      if (authUser.id !== requestedId) {
+        const currentUser = await storage.getUser(authUser.id);
+        if (!currentUser || currentUser.role !== "admin") {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
+      const user = await storage.getUser(requestedId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -517,7 +535,24 @@ export async function registerRoutes(
   // ===== USERS =====
   app.get("/api/users/:id", async (req, res) => {
     try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      
       const id = req.params.id;
+      if (authUser.id !== id) {
+        const currentUser = await storage.getUser(authUser.id);
+        if (!currentUser || currentUser.role !== "admin") {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+
       const user = await storage.getUser(id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
@@ -530,7 +565,21 @@ export async function registerRoutes(
 
   app.patch("/api/users/:id", async (req, res) => {
     try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      
       const id = req.params.id;
+      if (authUser.id !== id) {
+        return res.status(403).json({ error: "You can only update your own profile" });
+      }
+
       const allowedFields = ["firstName", "lastName", "businessName", "businessDescription", "profileImageUrl"];
       const updateData: Record<string, any> = {};
       for (const field of allowedFields) {
@@ -538,6 +587,46 @@ export async function registerRoutes(
           updateData[field] = req.body[field];
         }
       }
+      const updated = await storage.updateUser(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update user" });
+    }
+  });
+
+  app.patch("/api/admin/users/:id", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      const adminUser = await storage.getUser(authUser.id);
+      if (!adminUser || adminUser.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const id = req.params.id;
+      const allowedFields = ["firstName", "lastName", "businessName", "businessDescription", "profileImageUrl", "role"];
+      const validRoles = ["tourist", "business", "admin"];
+      const updateData: Record<string, any> = {};
+      
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          if (field === "role" && !validRoles.includes(req.body[field])) {
+            return res.status(400).json({ error: "Invalid role value" });
+          }
+          updateData[field] = req.body[field];
+        }
+      }
+      
       const updated = await storage.updateUser(id, updateData);
       if (!updated) {
         return res.status(404).json({ error: "User not found" });
@@ -566,8 +655,22 @@ export async function registerRoutes(
   });
 
   // ===== ADMIN USERS =====
-  app.get("/api/admin/users", async (_req, res) => {
+  app.get("/api/admin/users", async (req, res) => {
     try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      const adminUser = await storage.getUser(authUser.id);
+      if (!adminUser || adminUser.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
       const result = await db.execute(sql`
         SELECT id, first_name, last_name, email, profile_image_url, points, level, role, created_at
         FROM users
