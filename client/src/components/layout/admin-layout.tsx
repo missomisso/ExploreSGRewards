@@ -59,17 +59,17 @@ export function AdminLayout({ children, type }: AdminLayoutProps) {
       <div className="flex-1 overflow-auto py-4">
         <nav className="grid gap-1 px-2">
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <a
-                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
-                  location === item.href
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </a>
+            <Link 
+              key={item.href} 
+              href={item.href}
+              className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                location === item.href
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
             </Link>
           ))}
         </nav>
