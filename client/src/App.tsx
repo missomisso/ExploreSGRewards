@@ -15,6 +15,9 @@ import CreateMission from "@/pages/admin/create-mission";
 import VerificationCenter from "@/pages/admin/verification-center";
 import Profile from "@/pages/profile";
 import Leaderboard from "@/pages/leaderboard";
+import Login from "@/pages/auth/login";
+import Signup from "@/pages/auth/signup";
+import AuthCallback from "@/pages/auth/callback";
 
 function Router() {
   return (
@@ -26,6 +29,11 @@ function Router() {
       <Route path="/rewards" component={Rewards} />
       <Route path="/mission/:id" component={MissionDetail} />
       <Route path="/profile" component={Profile} />
+
+      {/* Auth Routes */}
+      <Route path="/auth/login" component={Login} />
+      <Route path="/auth/signup" component={Signup} />
+      <Route path="/auth/callback" component={AuthCallback} />
 
       {/* Admin Routes */}
       <Route path="/admin/super" component={SuperAdminDashboard} />

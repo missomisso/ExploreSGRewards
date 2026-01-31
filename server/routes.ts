@@ -2,7 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
-import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 
 import { sql } from "drizzle-orm";
 import { db } from "./db";
@@ -11,11 +12,88 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup Replit Auth
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  // Setup session middleware (for CSRF protection if needed)
+  const PgSession = connectPgSimple(session);
+  app.use(
+    session({
+      store: new PgSession({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: true,
+      }),
+      secret: process.env.SESSION_SECRET || "exploresg-secret-key",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: process.env.NODE_ENV === "production",
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      },
+    })
+  );
 
-    // ===== DB CHECK (Supabase connectivity) =====
+  // ===== SUPABASE CONFIG (for client-side) =====
+  app.get("/api/config/supabase", (_req, res) => {
+    res.json({
+      url: process.env.SUPABASE_URL || "",
+      anonKey: process.env.SUPABASE_ANON_KEY || "",
+    });
+  });
+
+  // ===== SUPABASE AUTH SYNC =====
+  app.post("/api/auth/sync", async (req, res) => {
+    try {
+      const { id, email, firstName, lastName, profileImageUrl } = req.body;
+
+      if (!id) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      // Check if user exists
+      let user = await storage.getUser(id);
+
+      if (user) {
+        // Update existing user
+        user = await storage.updateUser(id, {
+          email,
+          firstName,
+          lastName,
+          profileImageUrl,
+        });
+      } else {
+        // Create new user
+        user = await storage.createUser({
+          id,
+          email,
+          firstName,
+          lastName,
+          profileImageUrl,
+          role: "tourist",
+          level: 1,
+          points: 0,
+        });
+      }
+
+      res.json(user);
+    } catch (error) {
+      console.error("Error syncing user:", error);
+      res.status(500).json({ error: "Failed to sync user" });
+    }
+  });
+
+  // Get current user by ID (for client-side auth checks)
+  app.get("/api/auth/user/:id", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  // ===== DB CHECK (Supabase connectivity) =====
   app.get("/api/db-check", async (_req, res) => {
     try {
       const result = await db.execute(sql`select now() as now`);
@@ -29,7 +107,7 @@ export async function registerRoutes(
     }
   });
 
-    app.get("/api/db-tables", async (_req, res) => {
+  app.get("/api/db-tables", async (_req, res) => {
     const result = await db.execute(sql`
       select tablename
       from pg_tables

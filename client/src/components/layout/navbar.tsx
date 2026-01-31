@@ -6,10 +6,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
+declare global {
+  interface Window {
+    logout?: () => Promise<void>;
+  }
+}
+
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
 
   const navItems = [
     { href: "/", label: "Home", icon: MapPin },
@@ -83,20 +89,20 @@ export function Navbar() {
                 </Avatar>
                 <span className="text-sm font-medium text-foreground">{getDisplayName()}</span>
               </Link>
-              <a
-                href="/api/logout"
+              <button
+                onClick={() => logout()}
                 className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                 data-testid="button-logout"
               >
                 <LogOut className="h-4 w-4" />
-              </a>
+              </button>
             </div>
           ) : (
-            <a href="/api/login" data-testid="button-login">
+            <Link href="/auth/login" data-testid="button-login">
               <Button size="sm" className="ml-4 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white">
                 Sign In
               </Button>
-            </a>
+            </Link>
           )}
         </div>
 
@@ -137,22 +143,26 @@ export function Navbar() {
                         <User className="h-5 w-5" />
                         My Profile
                       </Link>
-                      <a
-                        href="/api/logout"
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md text-red-600"
+                      <button
+                        onClick={() => {
+                          logout();
+                          setIsOpen(false);
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-3 hover:bg-muted rounded-md text-red-600"
                       >
                         <LogOut className="h-5 w-5" />
                         Sign Out
-                      </a>
+                      </button>
                     </>
                   ) : (
-                    <a
-                      href="/api/login"
+                    <Link
+                      href="/auth/login"
+                      onClick={() => setIsOpen(false)}
                       className="flex items-center gap-3 px-4 py-3 bg-[var(--brand)] text-white rounded-md"
                     >
                       <User className="h-5 w-5" />
                       Sign In
-                    </a>
+                    </Link>
                   )}
                 </div>
               </div>
