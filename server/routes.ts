@@ -2,8 +2,6 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import { verifySupabaseToken } from "./supabase";
 
 import { sql } from "drizzle-orm";
@@ -41,25 +39,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup session middleware (for CSRF protection if needed)
-  const PgSession = connectPgSimple(session);
-  app.use(
-    session({
-      store: new PgSession({
-        conString: process.env.DATABASE_URL,
-        createTableIfMissing: true,
-      }),
-      secret: process.env.SESSION_SECRET || "exploresg-secret-key",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: process.env.NODE_ENV === "production",
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      },
-    })
-  );
-
   // ===== SUPABASE CONFIG (for client-side) =====
   app.get("/api/config/supabase", (_req, res) => {
     res.json({
