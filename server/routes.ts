@@ -252,6 +252,114 @@ export async function registerRoutes(
     }
   });
 
+  // ===== TASK COMPLETION =====
+  app.post("/api/tasks/complete", async (req, res) => {
+    try {
+      const { userId, missionId, taskId, taskType, answer, proofUrl } = req.body;
+      
+      if (!userId || !missionId || !taskId || !taskType) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const mission = await storage.getMission(missionId);
+      if (!mission) {
+        return res.status(404).json({ error: "Mission not found" });
+      }
+
+      const task = mission.tasks.find((t: any) => t.id === taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      // Get or create user mission progress
+      let userMission = await storage.getUserMission(userId, missionId);
+      if (!userMission) {
+        userMission = await storage.createUserMission({
+          userId,
+          missionId,
+          status: "in_progress",
+          completedTasks: [],
+        });
+      }
+
+      // Check if task already completed
+      if (userMission.completedTasks.includes(taskId)) {
+        return res.status(400).json({ error: "Task already completed" });
+      }
+
+      // Handle different task types
+      const autoValidatedTypes = ["gps", "quiz", "qrcode"];
+      const manualReviewTypes = ["photo", "receipt"];
+
+      if (autoValidatedTypes.includes(taskType)) {
+        // Auto-validate: GPS, Quiz, QR Code
+        let isValid = true;
+
+        if (taskType === "quiz") {
+          // Validate quiz answer
+          const correctAnswer = (task as any).correctAnswer;
+          const userAnswer = parseInt(answer);
+          isValid = correctAnswer === userAnswer;
+          
+          if (!isValid) {
+            return res.status(400).json({ error: "Incorrect answer", valid: false });
+          }
+        }
+
+        // GPS and QR code are simulated as always valid for now
+        // In production, would verify GPS coordinates or QR code data
+
+        // Mark task as completed and award points
+        const completedTasks = [...userMission.completedTasks, taskId];
+        await storage.updateUserMission(userMission.id, { completedTasks });
+
+        // Award points for this task
+        const user = await storage.getUser(userId);
+        if (user) {
+          await storage.updateUserPoints(userId, user.points + task.points);
+        }
+
+        // Check if all tasks completed
+        if (completedTasks.length === mission.tasks.length) {
+          await storage.updateUserMission(userMission.id, {
+            status: "completed",
+            completedAt: new Date(),
+          });
+        }
+
+        return res.json({ 
+          success: true, 
+          pointsAwarded: task.points,
+          autoValidated: true,
+          completedTasks 
+        });
+
+      } else if (manualReviewTypes.includes(taskType)) {
+        // Create submission for manual review
+        const submission = await storage.createSubmission({
+          userId,
+          missionId,
+          taskId,
+          type: taskType,
+          proofUrl: proofUrl || null,
+          status: "pending",
+        });
+
+        return res.json({ 
+          success: true, 
+          pendingReview: true,
+          submissionId: submission.id,
+          message: "Your submission is pending review"
+        });
+      }
+
+      return res.status(400).json({ error: "Unknown task type" });
+    } catch (error) {
+      console.error("Task completion error:", error);
+      res.status(500).json({ error: "Failed to complete task" });
+    }
+  });
+
   // ===== SUBMISSIONS (Task Verification) =====
   app.post("/api/submissions", async (req, res) => {
     try {
@@ -282,28 +390,43 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Submission not found" });
       }
 
-      // If submission approved, update user mission progress
+      // If submission approved, update user mission progress and award points
       if (req.body.status === "approved") {
         const { userId, missionId, taskId } = updated;
-        const userMission = await storage.getUserMission(userId, missionId);
+        const mission = await storage.getMission(missionId);
         
-        if (userMission) {
+        if (mission) {
+          // Find the task to get its points
+          const task = mission.tasks.find((t: any) => t.id === taskId);
+          
+          // Award points for this task
+          if (task) {
+            const user = await storage.getUser(userId);
+            if (user) {
+              await storage.updateUserPoints(userId, user.points + task.points);
+            }
+          }
+
+          // Update user mission progress
+          let userMission = await storage.getUserMission(userId, missionId);
+          if (!userMission) {
+            userMission = await storage.createUserMission({
+              userId,
+              missionId,
+              status: "in_progress",
+              completedTasks: [],
+            });
+          }
+          
           const completedTasks = [...userMission.completedTasks, taskId];
           await storage.updateUserMission(userMission.id, { completedTasks });
 
           // Check if all tasks completed
-          const mission = await storage.getMission(missionId);
-          if (mission && completedTasks.length === mission.tasks.length) {
+          if (completedTasks.length === mission.tasks.length) {
             await storage.updateUserMission(userMission.id, {
               status: "completed",
               completedAt: new Date(),
             });
-
-            // Award points
-            const user = await storage.getUser(userId);
-            if (user) {
-              await storage.updateUserPoints(userId, user.points + mission.totalPoints);
-            }
           }
         }
       }
