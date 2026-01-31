@@ -30,10 +30,11 @@ export interface IStorage {
   updateUserPoints(id: string, points: number): Promise<void>;
 
   // Missions
-  getMissions(): Promise<Mission[]>;
+  getMissions(activeOnly?: boolean): Promise<Mission[]>;
   getMission(id: number): Promise<Mission | undefined>;
   createMission(mission: InsertMission): Promise<Mission>;
   updateMission(id: number, mission: Partial<InsertMission>): Promise<Mission | undefined>;
+  deleteMission(id: number): Promise<void>;
 
   // User Missions
   getUserMission(userId: string, missionId: number): Promise<UserMission | undefined>;
@@ -50,6 +51,7 @@ export interface IStorage {
   getRewards(): Promise<Reward[]>;
   getReward(id: number): Promise<Reward | undefined>;
   createReward(reward: InsertReward): Promise<Reward>;
+  deleteReward(id: number): Promise<void>;
 
   // User Rewards
   createUserReward(userReward: InsertUserReward): Promise<UserReward>;
@@ -83,8 +85,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Missions
-  async getMissions(): Promise<Mission[]> {
-    return await db.select().from(missions).where(eq(missions.status, "active")).orderBy(desc(missions.createdAt));
+  async getMissions(activeOnly: boolean = true): Promise<Mission[]> {
+    if (activeOnly) {
+      return await db.select().from(missions).where(eq(missions.status, "active")).orderBy(desc(missions.createdAt));
+    }
+    return await db.select().from(missions).orderBy(desc(missions.createdAt));
   }
 
   async getMission(id: number): Promise<Mission | undefined> {
@@ -100,6 +105,10 @@ export class DatabaseStorage implements IStorage {
   async updateMission(id: number, mission: Partial<InsertMission>): Promise<Mission | undefined> {
     const [updated] = await db.update(missions).set(mission as any).where(eq(missions.id, id)).returning();
     return updated || undefined;
+  }
+
+  async deleteMission(id: number): Promise<void> {
+    await db.delete(missions).where(eq(missions.id, id));
   }
 
   // User Missions
@@ -167,6 +176,10 @@ export class DatabaseStorage implements IStorage {
   async createReward(reward: InsertReward): Promise<Reward> {
     const [newReward] = await db.insert(rewards).values(reward).returning();
     return newReward;
+  }
+
+  async deleteReward(id: number): Promise<void> {
+    await db.delete(rewards).where(eq(rewards.id, id));
   }
 
   // User Rewards

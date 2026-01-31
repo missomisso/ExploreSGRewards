@@ -31,19 +31,15 @@ export function AdminLayout({ children, type }: AdminLayoutProps) {
   const superAdminNav = [
     { href: "/admin/super", label: "Overview", icon: LayoutDashboard },
     { href: "/admin/super/businesses", label: "Businesses", icon: Building2 },
-    { href: "/admin/super/missions", label: "Global Missions", icon: Map },
     { href: "/admin/super/users", label: "Users", icon: Users },
-    { href: "/admin/super/moderation", label: "Moderation", icon: ShieldAlert },
-    { href: "/admin/super/settings", label: "Settings", icon: Settings },
+    { href: "/admin/super/rewards", label: "Rewards", icon: Gift },
   ];
 
   const businessAdminNav = [
     { href: "/admin/business", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/business/locations", label: "Locations", icon: Store },
     { href: "/admin/business/missions", label: "Missions", icon: ClipboardList },
-    { href: "/admin/business/rewards", label: "Rewards", icon: Gift },
-    { href: "/admin/business/submissions", label: "Verifications", icon: CheckSquare },
-    { href: "/admin/business/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/admin/business/verification", label: "Verifications", icon: CheckSquare },
+    { href: "/admin/business/settings", label: "Settings", icon: Settings },
   ];
 
   const navItems = type === "super" ? superAdminNav : businessAdminNav;

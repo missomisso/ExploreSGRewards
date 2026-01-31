@@ -145,7 +145,8 @@ export async function registerRoutes(
   // ===== MISSIONS =====
   app.get("/api/missions", async (req, res) => {
     try {
-      const missions = await storage.getMissions();
+      const all = req.query.all === "true";
+      const missions = await storage.getMissions(!all);
       res.json(missions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch missions" });
@@ -172,6 +173,36 @@ export async function registerRoutes(
       res.status(201).json(mission);
     } catch (error) {
       res.status(400).json({ error: "Invalid mission data" });
+    }
+  });
+
+  app.patch("/api/missions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const allowedFields = ["title", "description", "location", "status", "tasks", "totalPoints", "category", "startDate", "endDate"];
+      const updateData: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      }
+      const updated = await storage.updateMission(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "Mission not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update mission" });
+    }
+  });
+
+  app.delete("/api/missions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteMission(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete mission" });
     }
   });
 
@@ -303,6 +334,16 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/rewards/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteReward(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete reward" });
+    }
+  });
+
   app.post("/api/rewards/claim", async (req, res) => {
     try {
       const { userId, rewardId } = req.body;
@@ -378,6 +419,22 @@ export async function registerRoutes(
       res.json(users);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch leaderboard" });
+    }
+  });
+
+  // ===== ADMIN USERS =====
+  app.get("/api/admin/users", async (_req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT id, first_name, last_name, email, profile_image_url, points, level, role, created_at
+        FROM users
+        ORDER BY created_at DESC
+        LIMIT 100
+      `);
+      const users = (result as any).rows || result;
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
     }
   });
 

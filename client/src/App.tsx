@@ -13,6 +13,12 @@ import SuperAdminDashboard from "@/pages/admin/super-dashboard";
 import BusinessAdminDashboard from "@/pages/admin/business-dashboard";
 import CreateMission from "@/pages/admin/create-mission";
 import VerificationCenter from "@/pages/admin/verification-center";
+import MissionsList from "@/pages/admin/missions-list";
+import EditMission from "@/pages/admin/edit-mission";
+import BusinessSettings from "@/pages/admin/business-settings";
+import SuperUsers from "@/pages/admin/super-users";
+import SuperBusinesses from "@/pages/admin/super-businesses";
+import SuperRewards from "@/pages/admin/super-rewards";
 import Profile from "@/pages/profile";
 import Leaderboard from "@/pages/leaderboard";
 import Login from "@/pages/auth/login";
@@ -35,14 +41,19 @@ function Router() {
       <Route path="/auth/signup" component={Signup} />
       <Route path="/auth/callback" component={AuthCallback} />
 
-      {/* Admin Routes */}
-      <Route path="/admin/super" component={SuperAdminDashboard} />
+      {/* Business Admin Routes */}
       <Route path="/admin/business" component={BusinessAdminDashboard} />
+      <Route path="/admin/business/missions" component={MissionsList} />
       <Route path="/admin/business/missions/new" component={CreateMission} />
-      <Route
-        path="/admin/business/verification"
-        component={VerificationCenter}
-      />
+      <Route path="/admin/business/missions/:id/edit" component={EditMission} />
+      <Route path="/admin/business/verification" component={VerificationCenter} />
+      <Route path="/admin/business/settings" component={BusinessSettings} />
+
+      {/* Super Admin Routes */}
+      <Route path="/admin/super" component={SuperAdminDashboard} />
+      <Route path="/admin/super/users" component={SuperUsers} />
+      <Route path="/admin/super/businesses" component={SuperBusinesses} />
+      <Route path="/admin/super/rewards" component={SuperRewards} />
 
       <Route component={NotFound} />
     </Switch>
