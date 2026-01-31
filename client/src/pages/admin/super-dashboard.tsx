@@ -2,6 +2,8 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import { 
   Users, 
   Building2, 
@@ -10,7 +12,8 @@ import {
   MoreHorizontal, 
   AlertCircle, 
   Loader2,
-  ArrowUpRight
+  Trophy,
+  Target
 } from "lucide-react";
 import {
   Table,
@@ -22,15 +25,23 @@ import {
 } from "@/components/ui/table";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 export default function SuperAdminDashboard() {
+  const { session } = useSupabaseAuth();
+
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/users");
-      if (!res.ok) throw new Error("Failed to fetch users");
+      const token = session?.access_token;
+      if (!token) return [];
+      const res = await fetch("/api/admin/users", {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
       return res.json();
     },
+    enabled: !!session?.access_token,
   });
 
   const { data: missions = [], isLoading: missionsLoading } = useQuery({
@@ -51,6 +62,20 @@ export default function SuperAdminDashboard() {
     },
   });
 
+  const { data: userProgress = [], isLoading: progressLoading } = useQuery({
+    queryKey: ["/api/admin/user-progress"],
+    queryFn: async () => {
+      const token = session?.access_token;
+      if (!token) return [];
+      const res = await fetch("/api/admin/user-progress", {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!session?.access_token,
+  });
+
   const { data: submissions = [], isLoading: submissionsLoading } = useQuery({
     queryKey: ["/api/submissions", "pending"],
     queryFn: async () => {
@@ -60,7 +85,7 @@ export default function SuperAdminDashboard() {
     },
   });
 
-  const isLoading = usersLoading || missionsLoading || rewardsLoading || submissionsLoading;
+  const isLoading = usersLoading || missionsLoading || rewardsLoading || submissionsLoading || progressLoading;
 
   const touristCount = users.filter((u: any) => u.role === "tourist").length;
   const businessCount = users.filter((u: any) => u.role === "business").length;
@@ -150,55 +175,96 @@ export default function SuperAdminDashboard() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Business Accounts</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Registered business partners.</p>
-          </div>
-          <Link href="/admin/super/businesses">
-            <Button variant="outline" size="sm">View All</Button>
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {businesses.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">No business accounts registered yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Business Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {businesses.map((business: any) => (
-                  <TableRow key={business.id}>
-                    <TableCell className="font-medium">
-                      {business.business_name || `${business.first_name || ''} ${business.last_name || ''}`.trim() || "Unnamed Business"}
-                    </TableCell>
-                    <TableCell>{business.email}</TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">
-                        Active
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{getTimeSince(business.created_at)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-yellow-500" />
+                User Progress
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Top tourists and their mission progress.</p>
+            </div>
+            <Link href="/admin/super/users">
+              <Button variant="outline" size="sm">View All</Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {userProgress.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No user activity yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {userProgress.slice(0, 5).map((user: any) => (
+                  <div key={user.id} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.profile_image_url} />
+                      <AvatarFallback>{(user.first_name || "U").charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium truncate">
+                          {user.first_name || "Anonymous"} {user.last_name || ""}
+                        </p>
+                        <Badge variant="secondary" className="ml-2">
+                          {user.points || 0} pts
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Target className="h-3 w-3" />
+                          {Number(user.missions_started) || 0} started
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Trophy className="h-3 w-3" />
+                          {Number(user.missions_completed) || 0} completed
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Business Accounts</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Registered business partners.</p>
+            </div>
+            <Link href="/admin/super/businesses">
+              <Button variant="outline" size="sm">View All</Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {businesses.length === 0 ? (
+              <p className="text-center py-8 text-muted-foreground">No business accounts registered yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {businesses.map((business: any) => (
+                  <div key={business.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Building2 className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">
+                          {business.business_name || `${business.first_name || ''} ${business.last_name || ''}`.trim() || "Unnamed Business"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{business.email}</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">
+                      Active
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </AdminLayout>
   );
 }

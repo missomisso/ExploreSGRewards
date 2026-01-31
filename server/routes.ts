@@ -684,5 +684,96 @@ export async function registerRoutes(
     }
   });
 
+  // ===== ADMIN USER PROGRESS =====
+  app.get("/api/admin/user-progress", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      const adminUser = await storage.getUser(authUser.id);
+      if (!adminUser || adminUser.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      const result = await db.execute(sql`
+        SELECT 
+          u.id, u.first_name, u.last_name, u.email, u.profile_image_url, u.points, u.level,
+          COUNT(DISTINCT um.id) as missions_started,
+          COUNT(DISTINCT CASE WHEN um.status = 'completed' THEN um.id END) as missions_completed
+        FROM users u
+        LEFT JOIN user_missions um ON u.id = um.user_id
+        WHERE u.role = 'tourist'
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.profile_image_url, u.points, u.level
+        ORDER BY u.points DESC
+        LIMIT 50
+      `);
+      const users = (result as any).rows || result;
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user progress" });
+    }
+  });
+
+  // ===== ADMIN MISSION STATS =====
+  app.get("/api/admin/mission-stats", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const token = authHeader.substring(7);
+      const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authUser) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      const currentUser = await storage.getUser(authUser.id);
+      if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "business")) {
+        return res.status(403).json({ error: "Admin or business access required" });
+      }
+
+      let result;
+      if (currentUser.role === "admin") {
+        result = await db.execute(sql`
+          SELECT 
+            m.id, m.title, m.total_points, m.status, m.category,
+            COUNT(DISTINCT um.user_id) as users_started,
+            COUNT(DISTINCT CASE WHEN um.status = 'completed' THEN um.user_id END) as users_completed,
+            COUNT(DISTINCT s.id) as total_submissions,
+            COUNT(DISTINCT CASE WHEN s.status = 'pending' THEN s.id END) as pending_submissions
+          FROM missions m
+          LEFT JOIN user_missions um ON m.id = um.mission_id
+          LEFT JOIN submissions s ON m.id = s.mission_id
+          GROUP BY m.id, m.title, m.total_points, m.status, m.category
+          ORDER BY users_started DESC
+        `);
+      } else {
+        result = await db.execute(sql`
+          SELECT 
+            m.id, m.title, m.total_points, m.status, m.category,
+            COUNT(DISTINCT um.user_id) as users_started,
+            COUNT(DISTINCT CASE WHEN um.status = 'completed' THEN um.user_id END) as users_completed,
+            COUNT(DISTINCT s.id) as total_submissions,
+            COUNT(DISTINCT CASE WHEN s.status = 'pending' THEN s.id END) as pending_submissions
+          FROM missions m
+          LEFT JOIN user_missions um ON m.id = um.mission_id
+          LEFT JOIN submissions s ON m.id = s.mission_id
+          WHERE m.business_id IS NULL OR m.business_id = 0
+          GROUP BY m.id, m.title, m.total_points, m.status, m.category
+          ORDER BY users_started DESC
+        `);
+      }
+      const stats = (result as any).rows || result;
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch mission stats" });
+    }
+  });
+
   return httpServer;
 }
