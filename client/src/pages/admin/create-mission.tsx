@@ -100,11 +100,27 @@ export default function CreateMission() {
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!missionData.title || tasks.length === 0) {
+    if (!missionData.title) {
       toast({
         variant: "destructive",
-        title: "Missing Information",
-        description: "Please add a title and at least one task.",
+        title: "Missing Title",
+        description: "Please add a title for your mission.",
+      });
+      return;
+    }
+    if (!missionData.description) {
+      toast({
+        variant: "destructive",
+        title: "Missing Description",
+        description: "Please add a description for your mission.",
+      });
+      return;
+    }
+    if (tasks.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Tasks",
+        description: "Please add at least one task to your mission.",
       });
       return;
     }

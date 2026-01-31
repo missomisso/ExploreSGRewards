@@ -189,8 +189,12 @@ export async function registerRoutes(
       const validated = insertMissionSchema.parse(req.body);
       const mission = await storage.createMission(validated);
       res.status(201).json(mission);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid mission data" });
+    } catch (error: any) {
+      console.error("Mission creation error:", error?.message || error);
+      if (error?.errors) {
+        console.error("Validation errors:", JSON.stringify(error.errors, null, 2));
+      }
+      res.status(400).json({ error: "Invalid mission data", details: error?.errors || error?.message });
     }
   });
 
