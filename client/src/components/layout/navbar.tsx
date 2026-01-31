@@ -1,14 +1,15 @@
 import { Link, useLocation } from "wouter";
-import { MapPin, Gift, Building2, Trophy, Menu, User } from "lucide-react";
+import { MapPin, Gift, Building2, Trophy, Menu, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const isLoggedIn = true; // Mock state
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const navItems = [
     { href: "/", label: "Home", icon: MapPin },
@@ -18,52 +19,84 @@ export function Navbar() {
     { href: "/business", label: "For Business", icon: Building2 },
   ];
 
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+  const getDisplayName = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName} ${user.lastName}`;
+    }
+    if (user?.firstName) {
+      return user.firstName;
+    }
+    if (user?.email) {
+      return user.email.split("@")[0];
+    }
+    return "User";
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md dark:bg-gray-950/80">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <Link href="/">
-            <a className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-white font-bold">
-                SG
-              </div>
-              <span className="font-heading text-xl font-bold tracking-tight text-foreground">
-                ExploreSG
-              </span>
-            </a>
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary text-white font-bold">
+              SG
+            </div>
+            <span className="font-heading text-xl font-bold tracking-tight text-foreground">
+              ExploreSG
+            </span>
           </Link>
         </div>
 
         {/* Desktop Nav */}
         <div className="hidden md:flex md:items-center md:gap-6">
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <a
-                className={`text-sm font-medium transition-colors hover:text-primary ${
-                  location === item.href
-                    ? "text-primary font-semibold"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {item.label}
-              </a>
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`text-sm font-medium transition-colors hover:text-primary ${
+                location === item.href
+                  ? "text-primary font-semibold"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {item.label}
             </Link>
           ))}
           
-          {isLoggedIn ? (
-            <Link href="/profile">
-              <a className="ml-4 flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors">
+          {isLoading ? (
+            <div className="ml-4 h-8 w-24 animate-pulse bg-gray-200 rounded-full" />
+          ) : isAuthenticated && user ? (
+            <div className="flex items-center gap-2 ml-4">
+              <Link href="/profile" className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors">
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src="https://github.com/shadcn.png" />
-                  <AvatarFallback>AC</AvatarFallback>
+                  <AvatarImage src={user.profileImageUrl || undefined} />
+                  <AvatarFallback>{getInitials()}</AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium text-foreground">Alex Chen</span>
+                <span className="text-sm font-medium text-foreground">{getDisplayName()}</span>
+              </Link>
+              <a
+                href="/api/logout"
+                className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
               </a>
-            </Link>
+            </div>
           ) : (
-            <Button size="sm" className="ml-4">
-              Sign In
-            </Button>
+            <a href="/api/login" data-testid="button-login">
+              <Button size="sm" className="ml-4 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white">
+                Sign In
+              </Button>
+            </a>
           )}
         </div>
 
@@ -71,38 +104,56 @@ export function Navbar() {
         <div className="md:hidden">
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" data-testid="button-menu">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent>
               <div className="flex flex-col gap-4 mt-8">
                 {navItems.map((item) => (
-                  <Link key={item.href} href={item.href}>
-                    <a
-                      onClick={() => setIsOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-                        location === item.href
-                          ? "bg-primary/10 text-primary font-semibold"
-                          : "hover:bg-muted text-foreground"
-                      }`}
-                    >
-                      <item.icon className="h-5 w-5" />
-                      {item.label}
-                    </a>
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                      location === item.href
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "hover:bg-muted text-foreground"
+                    }`}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
                   </Link>
                 ))}
                 
                 <div className="mt-4 border-t pt-4">
-                   <Link href="/profile">
-                     <a 
-                       onClick={() => setIsOpen(false)}
-                       className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md"
-                     >
-                       <User className="h-5 w-5" />
-                       My Profile
-                     </a>
-                   </Link>
+                  {isAuthenticated && user ? (
+                    <>
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md"
+                      >
+                        <User className="h-5 w-5" />
+                        My Profile
+                      </Link>
+                      <a
+                        href="/api/logout"
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md text-red-600"
+                      >
+                        <LogOut className="h-5 w-5" />
+                        Sign Out
+                      </a>
+                    </>
+                  ) : (
+                    <a
+                      href="/api/login"
+                      className="flex items-center gap-3 px-4 py-3 bg-[var(--brand)] text-white rounded-md"
+                    >
+                      <User className="h-5 w-5" />
+                      Sign In
+                    </a>
+                  )}
                 </div>
               </div>
             </SheetContent>

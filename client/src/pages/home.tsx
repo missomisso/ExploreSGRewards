@@ -5,8 +5,8 @@ import { AttractionCard } from "@/components/ui/attraction-card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowRight, Trophy, Map, Zap } from "lucide-react";
 import { Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
 
-// Assets
 import heroBg from "@assets/generated_images/singapore_skyline_gardens_bay_futuristic.jpg"; 
 import badgeMerlion from "@assets/generated_images/3d_gold_merlion_badge_icon.png";
 import badgeSupertree from "@assets/generated_images/3d_neon_supertree_badge_icon.png";
@@ -14,6 +14,13 @@ import imgHawker from "@assets/generated_images/vibrant_hawker_center_food_stall
 import imgMuseum from "@assets/generated_images/artscience_museum_singapore.png";
 
 export default function Home() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  const userPoints = user?.points || 0;
+  const userLevel = user?.level || 1;
+  const nextLevelPoints = userLevel * 500;
+  const progressPercent = Math.min((userPoints / nextLevelPoints) * 100, 100);
+
   return (
     <div className="min-h-screen bg-[var(--bg)] font-sans text-[var(--foreground)]">
       <Navbar />
@@ -35,27 +42,52 @@ export default function Home() {
             <span className="mb-4 inline-block rounded-full bg-[var(--brand)]/20 px-4 py-1.5 text-sm font-semibold backdrop-blur-md border border-[var(--brand)]/30 text-white">
               ✨ The #1 Tourist Companion App
             </span>
-            <h1 className="font-heading mb-6 text-5xl font-extrabold leading-tight md:text-6xl text-white">
-              Explore Singapore. <br />
-              <span className="text-[var(--brand)] drop-shadow-md">
-                Earn Rewards.
-              </span>
-            </h1>
-            <p className="mb-8 text-lg text-gray-100 md:text-xl font-light">
-              Turn your trip into a game. Visit attractions, discover hidden gems,
-              and unlock exclusive discounts at local businesses.
-            </p>
+            {isAuthenticated && user ? (
+              <>
+                <h1 className="font-heading mb-6 text-5xl font-extrabold leading-tight md:text-6xl text-white">
+                  Welcome back, <br />
+                  <span className="text-[var(--brand)] drop-shadow-md">
+                    {user.firstName || "Explorer"}!
+                  </span>
+                </h1>
+                <p className="mb-8 text-lg text-gray-100 md:text-xl font-light">
+                  Continue your Singapore adventure. You have {userPoints} points at Level {userLevel}.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="font-heading mb-6 text-5xl font-extrabold leading-tight md:text-6xl text-white">
+                  Explore Singapore. <br />
+                  <span className="text-[var(--brand)] drop-shadow-md">
+                    Earn Rewards.
+                  </span>
+                </h1>
+                <p className="mb-8 text-lg text-gray-100 md:text-xl font-light">
+                  Turn your trip into a game. Visit attractions, discover hidden gems,
+                  and unlock exclusive discounts at local businesses.
+                </p>
+              </>
+            )}
             <div className="flex gap-4">
               <Link href="/explore">
-                <Button size="lg" className="bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-bold h-12 px-8 border-0 shadow-lg">
+                <Button size="lg" className="bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white font-bold h-12 px-8 border-0 shadow-lg" data-testid="button-start-exploring">
                   Start Exploring
                 </Button>
               </Link>
-              <Link href="/business">
-                <Button size="lg" variant="outline" className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 h-12">
-                  For Businesses
-                </Button>
-              </Link>
+              {!isAuthenticated && (
+                <a href="/api/login">
+                  <Button size="lg" variant="outline" className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 h-12" data-testid="button-sign-in-hero">
+                    Sign In
+                  </Button>
+                </a>
+              )}
+              {isAuthenticated && (
+                <Link href="/rewards">
+                  <Button size="lg" variant="outline" className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 h-12" data-testid="button-view-rewards">
+                    View Rewards
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -69,37 +101,54 @@ export default function Home() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-heading text-xl font-bold text-[var(--foreground)]">Your Journey</h3>
-                <p className="text-sm text-gray-600">Level 3 Explorer</p>
+                <p className="text-sm text-gray-600">
+                  {isAuthenticated ? `Level ${userLevel} Explorer` : "Sign in to track progress"}
+                </p>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand)] text-white font-bold">
-                L3
+                L{userLevel}
               </div>
             </div>
             
-            <div className="mb-2 flex justify-between text-sm font-medium">
-              <span>1,250 Points</span>
-              <span className="text-gray-600">Next Level: 2,000</span>
-            </div>
-            <Progress value={62} className="h-3 bg-white" />
+            {isAuthenticated ? (
+              <>
+                <div className="mb-2 flex justify-between text-sm font-medium">
+                  <span>{userPoints} Points</span>
+                  <span className="text-gray-600">Next Level: {nextLevelPoints}</span>
+                </div>
+                <Progress value={progressPercent} className="h-3 bg-white" />
+              </>
+            ) : (
+              <div className="mb-2">
+                <p className="text-sm text-gray-500 mb-4">Create an account to start earning points and unlock exclusive rewards!</p>
+                <a href="/api/login">
+                  <Button className="w-full bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white" data-testid="button-sign-in-progress">
+                    Sign In to Start
+                  </Button>
+                </a>
+              </div>
+            )}
             
-            <div className="mt-6 grid grid-cols-2 gap-3">
-               <Button variant="outline" className="w-full text-xs h-8 border-[var(--brand)] text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white">
-                 View History
-               </Button>
-               <Button className="w-full text-xs h-8 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white">
-                 Redeem Rewards
-               </Button>
-            </div>
+            {isAuthenticated && (
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <Button variant="outline" className="w-full text-xs h-8 border-[var(--brand)] text-[var(--brand)] hover:bg-[var(--brand)] hover:text-white" data-testid="button-view-history">
+                  View History
+                </Button>
+                <Link href="/rewards">
+                  <Button className="w-full text-xs h-8 bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white" data-testid="button-redeem-rewards">
+                    Redeem Rewards
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Badges Preview */}
           <div className="col-span-1 lg:col-span-2 rounded-2xl bg-white p-6 shadow-xl border border-[var(--border)]">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-heading text-xl font-bold text-[var(--foreground)]">Recent Badges</h3>
-              <Link href="/rewards">
-                <a className="text-sm font-semibold text-[var(--brand)] hover:underline flex items-center gap-1">
-                  View All <ArrowRight className="h-3 w-3" />
-                </a>
+              <Link href="/rewards" className="text-sm font-semibold text-[var(--brand)] hover:underline flex items-center gap-1">
+                View All <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -116,7 +165,7 @@ export default function Home() {
               <BadgeCard 
                 title="Foodie King" 
                 description="Ate at 3 Hawkers" 
-                imageUrl={imgHawker} // Using food image as placeholder for badge
+                imageUrl={imgHawker}
                 isLocked
               />
               <BadgeCard 
@@ -138,7 +187,11 @@ export default function Home() {
               <h2 className="font-heading text-3xl font-bold text-[var(--foreground)]">Recommended for You</h2>
               <p className="text-gray-600 mt-1">Based on your preferences and location</p>
             </div>
-            <Button variant="ghost" className="text-[var(--brand)] hover:text-[var(--brand-hover)]">See All</Button>
+            <Link href="/explore">
+              <Button variant="ghost" className="text-[var(--brand)] hover:text-[var(--brand-hover)]" data-testid="button-see-all">
+                See All
+              </Button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

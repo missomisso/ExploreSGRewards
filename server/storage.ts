@@ -6,7 +6,7 @@ import {
   rewards,
   userRewards,
   type User,
-  type InsertUser,
+  type UpsertUser,
   type Mission,
   type InsertMission,
   type UserMission,
@@ -23,10 +23,9 @@ import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Users
-  getUser(id: number): Promise<User | undefined>;
+  getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUserPoints(id: number, points: number): Promise<void>;
+  updateUserPoints(id: string, points: number): Promise<void>;
 
   // Missions
   getMissions(): Promise<Mission[]>;
@@ -35,10 +34,10 @@ export interface IStorage {
   updateMission(id: number, mission: Partial<InsertMission>): Promise<Mission | undefined>;
 
   // User Missions
-  getUserMission(userId: number, missionId: number): Promise<UserMission | undefined>;
+  getUserMission(userId: string, missionId: number): Promise<UserMission | undefined>;
   createUserMission(userMission: InsertUserMission): Promise<UserMission>;
   updateUserMission(id: number, userMission: Partial<InsertUserMission>): Promise<UserMission | undefined>;
-  getUserMissions(userId: number): Promise<UserMission[]>;
+  getUserMissions(userId: string): Promise<UserMission[]>;
 
   // Submissions
   createSubmission(submission: InsertSubmission): Promise<Submission>;
@@ -52,12 +51,12 @@ export interface IStorage {
 
   // User Rewards
   createUserReward(userReward: InsertUserReward): Promise<UserReward>;
-  getUserRewards(userId: number): Promise<UserReward[]>;
+  getUserRewards(userId: string): Promise<UserReward[]>;
 }
 
 export class DatabaseStorage implements IStorage {
   // Users
-  async getUser(id: number): Promise<User | undefined> {
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
@@ -67,12 +66,7 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
-  }
-
-  async updateUserPoints(id: number, points: number): Promise<void> {
+  async updateUserPoints(id: string, points: number): Promise<void> {
     await db.update(users).set({ points }).where(eq(users.id, id));
   }
 
@@ -97,7 +91,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User Missions
-  async getUserMission(userId: number, missionId: number): Promise<UserMission | undefined> {
+  async getUserMission(userId: string, missionId: number): Promise<UserMission | undefined> {
     const [userMission] = await db
       .select()
       .from(userMissions)
@@ -115,7 +109,7 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async getUserMissions(userId: number): Promise<UserMission[]> {
+  async getUserMissions(userId: string): Promise<UserMission[]> {
     return await db.select().from(userMissions).where(eq(userMissions.userId, userId));
   }
 
@@ -169,7 +163,7 @@ export class DatabaseStorage implements IStorage {
     return newUserReward;
   }
 
-  async getUserRewards(userId: number): Promise<UserReward[]> {
+  async getUserRewards(userId: string): Promise<UserReward[]> {
     return await db.select().from(userRewards).where(eq(userRewards.userId, userId)).orderBy(desc(userRewards.claimedAt));
   }
 }

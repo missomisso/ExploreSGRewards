@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
+import { insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
+import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 import { sql } from "drizzle-orm";
 import { db } from "./db";
@@ -10,6 +11,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Setup Replit Auth
+  await setupAuth(app);
+  registerAuthRoutes(app);
 
     // ===== DB CHECK (Supabase connectivity) =====
   app.get("/api/db-check", async (_req, res) => {
@@ -97,7 +101,7 @@ export async function registerRoutes(
 
   app.get("/api/user-missions/:userId", async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.params.userId;
       const userMissions = await storage.getUserMissions(userId);
       res.json(userMissions);
     } catch (error) {
@@ -239,7 +243,7 @@ export async function registerRoutes(
 
   app.get("/api/user-rewards/:userId", async (req, res) => {
     try {
-      const userId = parseInt(req.params.userId);
+      const userId = req.params.userId;
       const userRewards = await storage.getUserRewards(userId);
       res.json(userRewards);
     } catch (error) {
@@ -248,19 +252,9 @@ export async function registerRoutes(
   });
 
   // ===== USERS =====
-  app.post("/api/users", async (req, res) => {
-    try {
-      const validated = insertUserSchema.parse(req.body);
-      const user = await storage.createUser(validated);
-      res.status(201).json(user);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid user data" });
-    }
-  });
-
   app.get("/api/users/:id", async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
+      const id = req.params.id;
       const user = await storage.getUser(id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });

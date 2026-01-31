@@ -3,24 +3,9 @@ import { pgTable, text, serial, integer, timestamp, boolean, json, varchar } fro
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Users Table
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  avatar: text("avatar"),
-  role: text("role").default("tourist").notNull(), // tourist, business, admin
-  businessName: text("business_name"),
-  businessDescription: text("business_description"),
-  level: integer("level").default(1).notNull(),
-  points: integer("points").default(0).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+// Re-export auth models (users and sessions tables)
+export * from "./models/auth";
+import { users } from "./models/auth";
 
 // Missions Table
 export const missions = pgTable("missions", {
@@ -57,7 +42,7 @@ export type Mission = typeof missions.$inferSelect;
 // User Mission Progress
 export const userMissions = pgTable("user_missions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   missionId: integer("mission_id").notNull().references(() => missions.id),
   status: text("status").default("in_progress").notNull(), // in_progress, completed
   completedTasks: json("completed_tasks").$type<string[]>().default([]).notNull(),
@@ -72,7 +57,7 @@ export type UserMission = typeof userMissions.$inferSelect;
 // Task Submissions (for verification)
 export const submissions = pgTable("submissions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   missionId: integer("mission_id").notNull().references(() => missions.id),
   taskId: text("task_id").notNull(),
   type: text("type").notNull(), // photo, receipt, quiz
@@ -108,7 +93,7 @@ export type Reward = typeof rewards.$inferSelect;
 // User Rewards (claimed)
 export const userRewards = pgTable("user_rewards", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
   rewardId: integer("reward_id").notNull().references(() => rewards.id),
   code: text("code").notNull(),
   used: boolean("used").default(false).notNull(),

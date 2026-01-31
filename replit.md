@@ -60,8 +60,16 @@ shared/          # Shared code between client/server
 - **Connection**: Requires `DATABASE_URL` environment variable
 
 ### Authentication & Backend Services
-- **Supabase**: Optional integration (`@supabase/supabase-js`) - client configured in `supabaseClient.js`
-- **Environment Variables**: `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+- **Replit Auth**: OpenID Connect authentication (Google, GitHub, Apple, email/password)
+- **Session Storage**: PostgreSQL-backed sessions via `connect-pg-simple`
+- **Auth Files**: `server/replit_integrations/auth/` contains auth setup
+- **Client Hook**: `client/src/hooks/use-auth.ts` for React components
+- **Routes**: `/api/login`, `/api/logout`, `/api/auth/user`
+
+### Database Connection
+- **Supabase PostgreSQL**: User's own Supabase database via DATABASE_URL
+- **SSL Workaround**: Using `NODE_TLS_REJECT_UNAUTHORIZED=0` for Supabase SSL
+- **Environment Variables**: `DATABASE_URL`, `SESSION_SECRET`
 
 ### Frontend Libraries
 - **Radix UI**: Complete primitive component set for accessibility
