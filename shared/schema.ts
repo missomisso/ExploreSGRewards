@@ -10,6 +10,9 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   avatar: text("avatar"),
+  role: text("role").default("tourist").notNull(), // tourist, business, admin
+  businessName: text("business_name"),
+  businessDescription: text("business_description"),
   level: integer("level").default(1).notNull(),
   points: integer("points").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

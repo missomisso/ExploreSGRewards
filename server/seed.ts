@@ -3,17 +3,140 @@ import { storage } from "./storage";
 async function seed() {
   console.log("🌱 Seeding database...");
 
-  // Create a demo user
-  const user = await storage.createUser({
-    name: "Alex Chen",
-    email: "alex@example.com",
-    password: "demo123",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
-    level: 3,
-    points: 1250,
-  });
+  // Create tourist users
+  const tourists = [
+    {
+      name: "Alex Chen",
+      email: "alex@example.com",
+      password: "demo123",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
+      role: "tourist",
+      level: 3,
+      points: 1250,
+    },
+    {
+      name: "Sarah Miller",
+      email: "sarah@example.com",
+      password: "demo123",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
+      role: "tourist",
+      level: 5,
+      points: 2800,
+    },
+    {
+      name: "James Wong",
+      email: "james@example.com",
+      password: "demo123",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=James",
+      role: "tourist",
+      level: 2,
+      points: 650,
+    },
+    {
+      name: "Emma Davis",
+      email: "emma@example.com",
+      password: "demo123",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
+      role: "tourist",
+      level: 4,
+      points: 1900,
+    },
+    {
+      name: "Michael Tan",
+      email: "michael@example.com",
+      password: "demo123",
+      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Michael",
+      role: "tourist",
+      level: 1,
+      points: 200,
+    },
+  ];
 
-  console.log("✅ Created demo user:", user.email);
+  // Create business users
+  const businesses = [
+    {
+      name: "Marina Bay Cafe",
+      email: "marina@business.com",
+      password: "business123",
+      avatar: "https://api.dicebear.com/7.x/identicon/svg?seed=MarinaBay",
+      role: "business",
+      businessName: "Marina Bay Cafe",
+      businessDescription: "Premium cafe with stunning views of Marina Bay Sands",
+      level: 1,
+      points: 0,
+    },
+    {
+      name: "Gardens Gift Shop",
+      email: "gardens@business.com",
+      password: "business123",
+      avatar: "https://api.dicebear.com/7.x/identicon/svg?seed=Gardens",
+      role: "business",
+      businessName: "Gardens Gift Shop",
+      businessDescription: "Official souvenir shop at Gardens by the Bay",
+      level: 1,
+      points: 0,
+    },
+    {
+      name: "Chinatown Heritage",
+      email: "chinatown@business.com",
+      password: "business123",
+      avatar: "https://api.dicebear.com/7.x/identicon/svg?seed=Chinatown",
+      role: "business",
+      businessName: "Chinatown Heritage Tours",
+      businessDescription: "Authentic cultural walking tours in Chinatown",
+      level: 1,
+      points: 0,
+    },
+  ];
+
+  // Create admin user
+  const admin = {
+    name: "Platform Admin",
+    email: "admin@exploresg.com",
+    password: "admin123",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin",
+    role: "admin",
+    level: 1,
+    points: 0,
+  };
+
+  // Seed all users
+  for (const tourist of tourists) {
+    try {
+      const user = await storage.createUser(tourist);
+      console.log("✅ Created tourist:", user.email);
+    } catch (e: any) {
+      if (e.code === '23505') {
+        console.log("⏭️ Tourist already exists:", tourist.email);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  for (const business of businesses) {
+    try {
+      const user = await storage.createUser(business);
+      console.log("✅ Created business:", user.email);
+    } catch (e: any) {
+      if (e.code === '23505') {
+        console.log("⏭️ Business already exists:", business.email);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  try {
+    const adminUser = await storage.createUser(admin);
+    console.log("✅ Created admin:", adminUser.email);
+  } catch (e: any) {
+    if (e.code === '23505') {
+      console.log("⏭️ Admin already exists:", admin.email);
+    } else {
+      throw e;
+    }
+  }
 
   // Create sample missions
   const missions = [
@@ -145,8 +268,16 @@ async function seed() {
   ];
 
   for (const missionData of missions) {
-    const mission = await storage.createMission(missionData);
-    console.log("✅ Created mission:", mission.title);
+    try {
+      const mission = await storage.createMission(missionData);
+      console.log("✅ Created mission:", mission.title);
+    } catch (e: any) {
+      if (e.code === '23505') {
+        console.log("⏭️ Mission already exists:", missionData.title);
+      } else {
+        throw e;
+      }
+    }
   }
 
   // Create sample rewards
@@ -186,8 +317,16 @@ async function seed() {
   ];
 
   for (const rewardData of rewardsData) {
-    const reward = await storage.createReward(rewardData);
-    console.log("✅ Created reward:", reward.title);
+    try {
+      const reward = await storage.createReward(rewardData);
+      console.log("✅ Created reward:", reward.title);
+    } catch (e: any) {
+      if (e.code === '23505') {
+        console.log("⏭️ Reward already exists:", rewardData.title);
+      } else {
+        throw e;
+      }
+    }
   }
 
   console.log("🎉 Seeding complete!");
