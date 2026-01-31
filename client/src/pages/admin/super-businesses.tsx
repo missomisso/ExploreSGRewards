@@ -27,63 +27,52 @@ import {
   XCircle,
   Eye,
   Building2,
-  Plus
+  Loader2
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-
-const MOCK_BUSINESSES = [
-  { id: 1, name: "Marina Bay Sands Gift Shop", owner: "mbs@example.com", status: "Active", plan: "Enterprise", missions: 12, joined: "Jan 2024" },
-  { id: 2, name: "Ah Hock Chicken Rice", owner: "hock@example.com", status: "Pending", plan: "Basic", missions: 0, joined: "Jan 2026" },
-  { id: 3, name: "Sentosa Adventure Park", owner: "admin@sentosa.com", status: "Active", plan: "Enterprise", missions: 25, joined: "Dec 2023" },
-  { id: 4, name: "Little India Spices", owner: "raja@example.com", status: "Suspended", plan: "Pro", missions: 5, joined: "Nov 2024" },
-  { id: 5, name: "Orchard Ion Concierge", owner: "ion@example.com", status: "Active", plan: "Pro", missions: 8, joined: "Oct 2024" },
-  { id: 6, name: "Gardens by the Bay", owner: "gardens@example.com", status: "Active", plan: "Enterprise", missions: 18, joined: "Sep 2023" },
-];
 
 export default function SuperBusinesses() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [businesses, setBusinesses] = useState(MOCK_BUSINESSES);
 
-  const filteredBusinesses = businesses.filter((b) =>
-    b.name.toLowerCase().includes(search.toLowerCase()) ||
-    b.owner.toLowerCase().includes(search.toLowerCase())
-  );
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ["/api/admin/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/users");
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
+    },
+  });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Active":
-        return <Badge className="bg-green-100 text-green-700">Active</Badge>;
-      case "Pending":
-        return <Badge className="bg-yellow-100 text-yellow-700">Pending</Badge>;
-      case "Suspended":
-        return <Badge className="bg-red-100 text-red-700">Suspended</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
+  const businesses = users.filter((u: any) => u.role === "business");
+
+  const filteredBusinesses = businesses.filter((b: any) => {
+    const name = b.business_name || `${b.first_name || ''} ${b.last_name || ''}`.trim();
+    return name.toLowerCase().includes(search.toLowerCase()) ||
+      (b.email || '').toLowerCase().includes(search.toLowerCase());
+  });
+
+  const getTimeSince = (date: string) => {
+    if (!date) return "Unknown";
+    const diff = Date.now() - new Date(date).getTime();
+    const hours = Math.floor(diff / 3600000);
+    if (hours < 24) return `${hours} hours ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} days ago`;
+    return new Date(date).toLocaleDateString();
   };
 
-  const handleApprove = (id: number) => {
-    setBusinesses(businesses.map(b => 
-      b.id === id ? { ...b, status: "Active" } : b
-    ));
-    toast({
-      title: "Business Approved",
-      description: "The business account has been activated.",
-      className: "bg-green-600 text-white border-0",
-    });
-  };
-
-  const handleSuspend = (id: number) => {
-    setBusinesses(businesses.map(b => 
-      b.id === id ? { ...b, status: "Suspended" } : b
-    ));
-    toast({
-      title: "Business Suspended",
-      description: "The business account has been suspended.",
-      variant: "destructive",
-    });
-  };
+  if (isLoading) {
+    return (
+      <AdminLayout type="super">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout type="super">
@@ -95,52 +84,53 @@ export default function SuperBusinesses() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-heading font-bold">Business Management</h1>
-            <p className="text-muted-foreground">Approve and manage business accounts.</p>
+            <h1 className="text-2xl font-heading font-bold">Business Management</h1>
+            <p className="text-muted-foreground">Manage all registered business accounts.</p>
           </div>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" /> Add Business
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{businesses.length}</div>
-            <p className="text-muted-foreground text-sm">Total Businesses</p>
+          <CardContent className="flex items-center p-4">
+            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+              <Building2 className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Total Businesses</p>
+              <p className="text-xl font-bold">{businesses.length}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">
-              {businesses.filter(b => b.status === "Active").length}
+          <CardContent className="flex items-center p-4">
+            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+              <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
-            <p className="text-muted-foreground text-sm">Active</p>
+            <div>
+              <p className="text-sm text-muted-foreground">Active</p>
+              <p className="text-xl font-bold">{businesses.length}</p>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-yellow-600">
-              {businesses.filter(b => b.status === "Pending").length}
+          <CardContent className="flex items-center p-4">
+            <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+              <XCircle className="h-5 w-5 text-yellow-600" />
             </div>
-            <p className="text-muted-foreground text-sm">Pending Approval</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-red-600">
-              {businesses.filter(b => b.status === "Suspended").length}
+            <div>
+              <p className="text-sm text-muted-foreground">Pending Approval</p>
+              <p className="text-xl font-bold">0</p>
             </div>
-            <p className="text-muted-foreground text-sm">Suspended</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader className="border-b">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>All Businesses</CardTitle>
+            <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search businesses..."
@@ -151,38 +141,41 @@ export default function SuperBusinesses() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent>
           {filteredBusinesses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-bold">No businesses found</h3>
-              <p className="text-muted-foreground">Try a different search term.</p>
+            <div className="text-center py-12 text-muted-foreground">
+              {search ? "No businesses match your search." : "No business accounts registered yet."}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Business</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Missions</TableHead>
+                  <TableHead>Business Name</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Joined</TableHead>
-                  <TableHead className="w-[70px]"></TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBusinesses.map((business) => (
-                  <TableRow key={business.id}>
-                    <TableCell className="font-medium">{business.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{business.owner}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{business.plan}</Badge>
+                {filteredBusinesses.map((business: any) => (
+                  <TableRow key={business.id} data-testid={`business-row-${business.id}`}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Building2 className="h-4 w-4 text-primary" />
+                        </div>
+                        {business.business_name || `${business.first_name || ''} ${business.last_name || ''}`.trim() || "Unnamed Business"}
+                      </div>
                     </TableCell>
-                    <TableCell>{business.missions}</TableCell>
-                    <TableCell>{getStatusBadge(business.status)}</TableCell>
-                    <TableCell className="text-muted-foreground">{business.joined}</TableCell>
+                    <TableCell>{business.email}</TableCell>
                     <TableCell>
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">
+                        Active
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{getTimeSince(business.created_at)}</TableCell>
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -193,22 +186,6 @@ export default function SuperBusinesses() {
                           <DropdownMenuItem>
                             <Eye className="h-4 w-4 mr-2" /> View Details
                           </DropdownMenuItem>
-                          {business.status === "Pending" && (
-                            <DropdownMenuItem 
-                              className="text-green-600"
-                              onClick={() => handleApprove(business.id)}
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" /> Approve
-                            </DropdownMenuItem>
-                          )}
-                          {business.status !== "Suspended" && (
-                            <DropdownMenuItem 
-                              className="text-red-600"
-                              onClick={() => handleSuspend(business.id)}
-                            >
-                              <XCircle className="h-4 w-4 mr-2" /> Suspend
-                            </DropdownMenuItem>
-                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

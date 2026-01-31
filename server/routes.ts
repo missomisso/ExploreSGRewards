@@ -528,6 +528,26 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/users/:id", async (req, res) => {
+    try {
+      const id = req.params.id;
+      const allowedFields = ["firstName", "lastName", "businessName", "businessDescription", "profileImageUrl"];
+      const updateData: Record<string, any> = {};
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      }
+      const updated = await storage.updateUser(id, updateData);
+      if (!updated) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update user" });
+    }
+  });
+
   // ===== LEADERBOARD =====
   app.get("/api/leaderboard", async (_req, res) => {
     try {

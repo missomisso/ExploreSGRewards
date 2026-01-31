@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,34 +18,90 @@ import {
   Globe,
   Upload
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 export default function BusinessSettings() {
   const { toast } = useToast();
   const { user } = useSupabaseAuth();
+  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  const [isSaving, setIsSaving] = useState(false);
 
   const [businessData, setBusinessData] = useState({
-    businessName: "Marina Bay Sands Gift Shop",
-    description: "Premium souvenirs and gifts from Singapore's iconic destination.",
-    address: "10 Bayfront Avenue, Singapore 018956",
-    phone: "+65 6688 8888",
-    website: "https://marinabaysands.com",
-    email: user?.email || "",
+    businessName: "",
+    businessDescription: "",
+    firstName: "",
+    lastName: "",
   });
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    toast({
-      title: "Settings Saved",
-      description: "Your business profile has been updated.",
-      className: "bg-green-600 text-white border-0",
-    });
+  const { data: userData, isLoading } = useQuery({
+    queryKey: ["/api/users", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const res = await fetch(`/api/users/${user.id}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  useEffect(() => {
+    if (userData) {
+      setBusinessData({
+        businessName: userData.businessName || userData.business_name || "",
+        businessDescription: userData.businessDescription || userData.business_description || "",
+        firstName: userData.firstName || userData.first_name || "",
+        lastName: userData.lastName || userData.last_name || "",
+      });
+    }
+  }, [userData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: typeof businessData) => {
+      const res = await fetch(`/api/users/${user?.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: data.firstName,
+          lastName: data.lastName,
+          businessName: data.businessName,
+          businessDescription: data.businessDescription,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save settings");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Settings Saved",
+        description: "Your business profile has been updated.",
+        className: "bg-green-600 text-white border-0",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    saveMutation.mutate(businessData);
   };
+
+  if (isLoading) {
+    return (
+      <AdminLayout type="business">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout type="business">
@@ -61,8 +117,8 @@ export default function BusinessSettings() {
             <p className="text-muted-foreground">Manage your business profile and preferences.</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-2">
+          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save Changes
         </Button>
       </div>
@@ -77,82 +133,44 @@ export default function BusinessSettings() {
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src="https://images.unsplash.com/photo-1545575939-c10a5c4b5c6b?w=200" />
-                  <AvatarFallback><Building2 className="h-8 w-8" /></AvatarFallback>
+                  <AvatarImage src={userData?.profileImageUrl || userData?.profile_image_url} />
+                  <AvatarFallback className="text-2xl bg-primary/10">
+                    {businessData.businessName?.charAt(0) || businessData.firstName?.charAt(0) || "B"}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                  <Button variant="outline" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2">
                     <Upload className="h-4 w-4" /> Upload Logo
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Recommended: 200x200px, PNG or JPG
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">Recommended: 200x200px, PNG or JPG</p>
                 </div>
               </div>
 
               <Separator />
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="businessName">Business Name</Label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="businessName"
-                      className="pl-9"
-                      value={businessData.businessName}
-                      onChange={(e) => setBusinessData({ ...businessData, businessName: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={businessData.description}
-                    onChange={(e) => setBusinessData({ ...businessData, description: e.target.value })}
-                    rows={3}
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="businessName">
+                    <Building2 className="h-4 w-4 inline mr-2" />
+                    Business Name
+                  </Label>
+                  <Input
+                    id="businessName"
+                    value={businessData.businessName}
+                    onChange={(e) => setBusinessData({ ...businessData, businessName: e.target.value })}
+                    placeholder="Your business name"
                   />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Address</Label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="address"
-                      className="pl-9"
-                      value={businessData.address}
-                      onChange={(e) => setBusinessData({ ...businessData, address: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="phone"
-                      className="pl-9"
-                      value={businessData.phone}
-                      onChange={(e) => setBusinessData({ ...businessData, phone: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
-                  <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="website"
-                      className="pl-9"
-                      value={businessData.website}
-                      onChange={(e) => setBusinessData({ ...businessData, website: e.target.value })}
-                    />
-                  </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={businessData.businessDescription}
+                    onChange={(e) => setBusinessData({ ...businessData, businessDescription: e.target.value })}
+                    placeholder="Tell tourists about your business..."
+                    rows={4}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -161,17 +179,39 @@ export default function BusinessSettings() {
           <Card>
             <CardHeader>
               <CardTitle>Contact Information</CardTitle>
-              <CardDescription>How we can reach you about your account.</CardDescription>
+              <CardDescription>Your personal details for account management.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    value={businessData.firstName}
+                    onChange={(e) => setBusinessData({ ...businessData, firstName: e.target.value })}
+                    placeholder="First name"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    value={businessData.lastName}
+                    onChange={(e) => setBusinessData({ ...businessData, lastName: e.target.value })}
+                    placeholder="Last name"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
-                  value={businessData.email}
-                  onChange={(e) => setBusinessData({ ...businessData, email: e.target.value })}
+                  value={user?.email || ""}
+                  disabled
+                  className="bg-muted"
                 />
+                <p className="text-xs text-muted-foreground">Email cannot be changed here.</p>
               </div>
             </CardContent>
           </Card>
@@ -183,31 +223,35 @@ export default function BusinessSettings() {
               <CardTitle>Account Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Plan</span>
-                <span className="font-bold text-primary">Business Pro</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Status</span>
+                <span className="text-sm font-medium text-green-600">Active</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Status</span>
-                <span className="text-green-600 font-medium">Active</span>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Account Type</span>
+                <span className="text-sm font-medium">Business</span>
               </div>
-              <Separator />
-              <Button variant="outline" className="w-full">
-                Upgrade Plan
-              </Button>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Member Since</span>
+                <span className="text-sm font-medium">
+                  {userData?.createdAt || userData?.created_at
+                    ? new Date(userData.createdAt || userData.created_at).toLocaleDateString()
+                    : "N/A"}
+                </span>
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="border-red-200">
+          <Card className="border-destructive/20">
             <CardHeader>
-              <CardTitle className="text-red-600">Danger Zone</CardTitle>
+              <CardTitle className="text-destructive">Danger Zone</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
                 Permanently delete your business account and all associated data.
               </p>
-              <Button variant="destructive" className="w-full">
-                Delete Business Account
+              <Button variant="destructive" className="w-full" disabled>
+                Delete Account
               </Button>
             </CardContent>
           </Card>
