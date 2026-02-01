@@ -108,7 +108,7 @@ export default function BusinessAdminDashboard() {
               )}
             </Button>
           </Link>
-          <Link href="/admin/business/missions/create">
+          <Link href="/admin/business/missions/new">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Create Mission
@@ -154,7 +154,7 @@ export default function BusinessAdminDashboard() {
               <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">No missions yet</h3>
               <p className="text-muted-foreground mb-4">Create your first mission to start engaging tourists.</p>
-              <Link href="/admin/business/missions/create">
+              <Link href="/admin/business/missions/new">
                 <Button>Create Mission</Button>
               </Link>
             </div>

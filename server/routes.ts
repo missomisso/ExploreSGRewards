@@ -186,7 +186,15 @@ export async function registerRoutes(
 
   app.post("/api/missions", async (req, res) => {
     try {
-      const validated = insertMissionSchema.parse(req.body);
+      // Parse date strings to Date objects
+      const body = { ...req.body };
+      if (body.startDate && typeof body.startDate === 'string') {
+        body.startDate = new Date(body.startDate);
+      }
+      if (body.endDate && typeof body.endDate === 'string') {
+        body.endDate = new Date(body.endDate);
+      }
+      const validated = insertMissionSchema.parse(body);
       const mission = await storage.createMission(validated);
       res.status(201).json(mission);
     } catch (error: any) {
