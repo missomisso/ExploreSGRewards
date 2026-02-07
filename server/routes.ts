@@ -226,9 +226,17 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/missions/:id", async (req, res) => {
+  app.delete("/api/missions/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const mission = await storage.getMission(id);
+      if (!mission) {
+        return res.status(404).json({ error: "Mission not found" });
+      }
+      const user = await storage.getUser(req.userId!);
+      if (user?.role !== "admin" && mission.businessId !== req.userId) {
+        return res.status(403).json({ error: "Not authorized to delete this mission" });
+      }
       await storage.deleteMission(id);
       res.json({ success: true });
     } catch (error) {
@@ -420,24 +428,26 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Submission not found" });
       }
 
-      // If submission approved, update user mission progress and award points
+      const { userId, missionId, taskId } = updated;
+      const mission = await storage.getMission(missionId);
+      const task = mission?.tasks.find((t: any) => t.id === taskId);
+
       if (req.body.status === "approved") {
-        const { userId, missionId, taskId } = updated;
-        const mission = await storage.getMission(missionId);
-        
-        if (mission) {
-          // Find the task to get its points
-          const task = mission.tasks.find((t: any) => t.id === taskId);
-          
-          // Award points for this task
-          if (task) {
-            const user = await storage.getUser(userId);
-            if (user) {
-              await storage.updateUserPoints(userId, user.points + task.points);
-            }
+        if (mission && task) {
+          const user = await storage.getUser(userId);
+          if (user) {
+            await storage.updateUserPoints(userId, user.points + task.points);
           }
 
-          // Update user mission progress
+          await storage.createNotification({
+            userId,
+            type: "submission_approved",
+            title: "Task Approved!",
+            message: `Your submission for ${task.title} has been approved. You earned ${task.points} points!`,
+            read: false,
+            relatedId: missionId,
+          });
+
           let userMission = await storage.getUserMission(userId, missionId);
           if (!userMission) {
             userMission = await storage.createUserMission({
@@ -451,13 +461,33 @@ export async function registerRoutes(
           const completedTasks = [...userMission.completedTasks, taskId];
           await storage.updateUserMission(userMission.id, { completedTasks });
 
-          // Check if all tasks completed
           if (completedTasks.length === mission.tasks.length) {
             await storage.updateUserMission(userMission.id, {
               status: "completed",
               completedAt: new Date(),
             });
+
+            await storage.createNotification({
+              userId,
+              type: "mission_completed",
+              title: "Mission Complete!",
+              message: `Congratulations! You completed ${mission.title} and earned ${mission.totalPoints} points!`,
+              read: false,
+              relatedId: missionId,
+            });
           }
+        }
+      } else if (req.body.status === "rejected") {
+        if (task) {
+          const reviewNote = req.body.reviewNote || updated.reviewNote;
+          await storage.createNotification({
+            userId,
+            type: "submission_rejected",
+            title: "Submission Rejected",
+            message: `Your submission for ${task.title} was not approved.${reviewNote ? ` ${reviewNote}` : ""}`,
+            read: false,
+            relatedId: missionId,
+          });
         }
       }
 
@@ -841,7 +871,7 @@ export async function registerRoutes(
           FROM missions m
           LEFT JOIN user_missions um ON m.id = um.mission_id
           LEFT JOIN submissions s ON m.id = s.mission_id
-          WHERE m.business_id IS NULL OR m.business_id = 0
+          WHERE m.business_id = ${currentUser.id}
           GROUP BY m.id, m.title, m.total_points, m.status, m.category
           ORDER BY users_started DESC
         `);
@@ -850,6 +880,52 @@ export async function registerRoutes(
       res.json(stats);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch mission stats" });
+    }
+  });
+
+  // ===== NOTIFICATIONS =====
+  app.post("/api/notifications/read-all", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+      await storage.markAllNotificationsRead(userId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.get("/api/notifications/:userId", async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const notifications = await storage.getNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.markNotificationRead(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+
+  // ===== USER SUBMISSIONS =====
+  app.get("/api/user-submissions/:userId/:missionId", async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const missionId = parseInt(req.params.missionId);
+      const submissions = await storage.getUserSubmissions(userId, missionId);
+      res.json(submissions);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user submissions" });
     }
   });
 

@@ -10,7 +10,7 @@ import { users } from "./models/auth";
 // Missions Table
 export const missions = pgTable("missions", {
   id: serial("id").primaryKey(),
-  businessId: integer("business_id"),
+  businessId: varchar("business_id").references(() => users.id),
   title: text("title").notNull(),
   description: text("description").notNull(),
   location: text("location"),
@@ -106,3 +106,19 @@ export const userRewards = pgTable("user_rewards", {
 export const insertUserRewardSchema = createInsertSchema(userRewards).omit({ id: true, claimedAt: true });
 export type InsertUserReward = z.infer<typeof insertUserRewardSchema>;
 export type UserReward = typeof userRewards.$inferSelect;
+
+// Notifications
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(), // submission_approved, submission_rejected, mission_completed, reward_claimed
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  read: boolean("read").default(false).notNull(),
+  relatedId: integer("related_id"), // mission or reward id
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;

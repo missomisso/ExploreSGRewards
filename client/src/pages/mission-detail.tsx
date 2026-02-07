@@ -28,13 +28,14 @@
  */
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Upload, MapPin, QrCode, CheckCircle2, Circle, HelpCircle, FileText, ArrowLeft, Loader2, Clock } from "lucide-react";
+import { Camera, Upload, MapPin, QrCode, CheckCircle2, Circle, HelpCircle, FileText, ArrowLeft, Loader2, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Link, useLocation, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -77,7 +78,6 @@ export default function MissionDetail() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [isComplete, setIsComplete] = useState(false);
-  const [pendingTasks, setPendingTasks] = useState<string[]>([]);
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -104,6 +104,17 @@ export default function MissionDetail() {
     enabled: !!user?.id && missionId > 0,
   });
 
+  const { data: userSubmissions = [] } = useQuery<any[]>({
+    queryKey: ["/api/user-submissions", user?.id, missionId],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/user-submissions/${user.id}/${missionId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id && missionId > 0,
+  });
+
   const completeMutation = useMutation({
     mutationFn: async (data: { taskId: string; taskType: string; answer?: number; proofUrl?: string }) => {
       const res = await fetch("/api/tasks/complete", {
@@ -125,6 +136,7 @@ export default function MissionDetail() {
     onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-mission"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user-submissions"] });
       
       if (result.autoValidated) {
         toast({
@@ -133,7 +145,6 @@ export default function MissionDetail() {
           className: "bg-green-600 text-white border-0",
         });
       } else if (result.pendingReview) {
-        setPendingTasks(prev => [...prev, variables.taskId]);
         toast({
           title: "Submission Received",
           description: "Your submission is pending review by the business.",
@@ -144,13 +155,9 @@ export default function MissionDetail() {
       setActiveTaskId(null);
       setSelectedAnswer(null);
 
-      // Check if all tasks completed
-      const completedCount = (userMission?.completedTasks?.length || 0) + 1;
-      const pendingCount = pendingTasks.length + (result.pendingReview ? 1 : 0);
-      if (mission && completedCount + pendingCount >= mission.tasks.length) {
-        if (completedCount >= mission.tasks.length) {
-          setTimeout(() => setIsComplete(true), 500);
-        }
+      const completedCount = (userMission?.completedTasks?.length || 0) + (result.autoValidated ? 1 : 0);
+      if (mission && completedCount >= mission.tasks.length) {
+        setTimeout(() => setIsComplete(true), 500);
       }
     },
     onError: (error: Error) => {
@@ -167,8 +174,19 @@ export default function MissionDetail() {
   const completedCount = completedTasks.length;
   const progress = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
-  const isTaskCompleted = (taskId: string) => completedTasks.includes(taskId);
-  const isTaskPending = (taskId: string) => pendingTasks.includes(taskId);
+  const getTaskSubmission = (taskId: string) => {
+    return userSubmissions.find((s: any) => s.taskId === taskId);
+  };
+
+  const getTaskStatus = (taskId: string): "completed" | "pending" | "rejected" | "not_started" => {
+    if (completedTasks.includes(taskId)) return "completed";
+    const submission = getTaskSubmission(taskId);
+    if (submission?.status === "pending") return "pending";
+    if (submission?.status === "rejected") return "rejected";
+    return "not_started";
+  };
+
+  const pendingCount = tasks.filter(t => getTaskStatus(t.id) === "pending").length;
 
   const handleTaskComplete = (task: Task) => {
     if (task.type === "quiz" && selectedAnswer === null) {
@@ -325,9 +343,12 @@ export default function MissionDetail() {
         <div className="mb-8 bg-card p-4 rounded-xl border shadow-sm">
           <div className="flex justify-between text-sm mb-2 font-medium">
             <span>Mission Progress</span>
-            <span className="text-primary">{completedCount}/{tasks.length} tasks</span>
+            <span className="text-primary">{completedCount}/{tasks.length} tasks{pendingCount > 0 ? ` (${pendingCount} pending review)` : ""}</span>
           </div>
           <Progress value={progress} className="h-2" />
+          {pendingCount > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">{pendingCount} submission{pendingCount !== 1 ? "s" : ""} under review</p>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -336,8 +357,8 @@ export default function MissionDetail() {
           {tasks.map((task, index) => {
             const Icon = getIconForType(task.type);
             const isActive = activeTaskId === task.id;
-            const completed = isTaskCompleted(task.id);
-            const pending = isTaskPending(task.id);
+            const status = getTaskStatus(task.id);
+            const submission = getTaskSubmission(task.id);
             
             return (
               <motion.div 
@@ -350,30 +371,40 @@ export default function MissionDetail() {
                 <Card 
                   data-testid={`task-card-${task.id}`}
                   className={`border-l-4 transition-all cursor-pointer overflow-hidden ${
-                    completed 
+                    status === "completed"
                       ? 'border-l-green-500 bg-green-50/50 dark:bg-green-900/10' 
-                      : pending
+                      : status === "pending"
                       ? 'border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10'
+                      : status === "rejected"
+                      ? 'border-l-red-500 bg-red-50/50 dark:bg-red-900/10'
                       : isActive 
                       ? 'border-l-primary ring-2 ring-primary/20' 
                       : 'border-l-gray-300 hover:border-l-primary/50'
                   }`}
-                  onClick={() => !completed && !pending && setActiveTaskId(isActive ? null : task.id)}
+                  onClick={() => (status === "not_started" || status === "rejected") && setActiveTaskId(isActive ? null : task.id)}
                 >
                   <CardHeader className="flex flex-row items-center space-y-0 p-4 gap-4">
                     <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
-                      completed 
+                      status === "completed"
                         ? 'bg-green-100 text-green-600' 
-                        : pending 
+                        : status === "pending"
                         ? 'bg-yellow-100 text-yellow-600'
+                        : status === "rejected"
+                        ? 'bg-red-100 text-red-600'
                         : 'bg-primary/10 text-primary'
                     }`}>
-                      {completed ? <CheckCircle2 className="h-6 w-6" /> : pending ? <Clock className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                      {status === "completed" ? <CheckCircle2 className="h-6 w-6" /> : status === "pending" ? <Clock className="h-5 w-5" /> : status === "rejected" ? <XCircle className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                     </div>
                     <div className="flex-grow">
                       <CardTitle className="text-base font-bold">{task.title}</CardTitle>
-                      <CardDescription className="line-clamp-1 text-xs">
-                        {pending ? "Pending review" : task.description}
+                      <CardDescription className="line-clamp-1 text-xs" data-testid={`task-status-${task.id}`}>
+                        {status === "completed"
+                          ? "Completed - Points awarded"
+                          : status === "pending"
+                          ? "Pending review by business"
+                          : status === "rejected"
+                          ? (submission?.reviewNote || "Submission rejected - try again")
+                          : task.description}
                       </CardDescription>
                     </div>
                     <div className="font-bold text-sm text-muted-foreground shrink-0">
@@ -382,7 +413,7 @@ export default function MissionDetail() {
                   </CardHeader>
                   
                   <AnimatePresence>
-                    {isActive && !completed && !pending && (
+                    {isActive && (status === "not_started" || status === "rejected") && (
                       <motion.div 
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}

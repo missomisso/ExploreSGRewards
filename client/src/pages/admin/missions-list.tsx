@@ -31,13 +31,15 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 export default function MissionsList() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const { user, session } = useSupabaseAuth();
 
-  const { data: missions = [], isLoading } = useQuery({
+  const { data: allMissions = [], isLoading } = useQuery({
     queryKey: ["/api/missions", "all"],
     queryFn: async () => {
       const res = await fetch("/api/missions?all=true");
@@ -46,9 +48,14 @@ export default function MissionsList() {
     },
   });
 
+  const missions = user?.role === "admin" ? allMissions : allMissions.filter((m: any) => m.businessId === user?.id);
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/missions/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/missions/${id}`, {
+        method: "DELETE",
+        headers: session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {},
+      });
       if (!res.ok) throw new Error("Failed to delete mission");
       return res.json();
     },

@@ -23,6 +23,7 @@ import {
   Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 type TaskType = "gps" | "photo" | "receipt" | "quiz" | "qrcode";
 
@@ -41,6 +42,7 @@ interface TaskDraft {
 export default function CreateMission() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user, session } = useSupabaseAuth();
   const [step, setStep] = useState(1);
   
   // Form State
@@ -134,6 +136,7 @@ export default function CreateMission() {
         totalPoints: calculateTotalPoints(),
         category: "General",
         status: "active",
+        businessId: user?.id || null,
         tasks: tasks.map((t, idx) => ({
           id: (idx + 1).toString(),
           type: t.type,

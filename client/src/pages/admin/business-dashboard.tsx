@@ -29,7 +29,7 @@ import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 export default function BusinessAdminDashboard() {
   const { user, session } = useSupabaseAuth();
 
-  const { data: missions = [], isLoading: missionsLoading } = useQuery({
+  const { data: allMissions = [], isLoading: missionsLoading } = useQuery({
     queryKey: ["/api/missions"],
     queryFn: async () => {
       const res = await fetch("/api/missions");
@@ -37,6 +37,8 @@ export default function BusinessAdminDashboard() {
       return res.json();
     },
   });
+
+  const missions = allMissions.filter((m: any) => m.businessId === user?.id);
 
   const { data: submissions = [], isLoading: submissionsLoading } = useQuery({
     queryKey: ["/api/submissions", "pending"],

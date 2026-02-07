@@ -1,9 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { MapPin, Gift, Building2, Trophy, Menu, User, LogOut, Settings } from "lucide-react";
+import { MapPin, Gift, Building2, Trophy, Menu, User, LogOut, Settings, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 
 declare global {
@@ -15,7 +17,19 @@ declare global {
 export function Navbar() {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { user, isAuthenticated, isLoading, logout } = useAuth();
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const navItems = [
     { href: "/", label: "Home", icon: MapPin },
@@ -47,6 +61,46 @@ export function Navbar() {
     }
     return "User";
   };
+
+  const queryClient = useQueryClient();
+
+  const { data: notifications = [] } = useQuery<any[]>({
+    queryKey: ["/api/notifications", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/notifications/${user.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id && isAuthenticated,
+    refetchInterval: 30000,
+  });
+
+  const unreadCount = notifications.filter((n: any) => !n.read).length;
+
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      await fetch("/api/notifications/read-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: async (notifId: number) => {
+      await fetch(`/api/notifications/${notifId}/read`, {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+    },
+  });
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md dark:bg-gray-950/80">
@@ -82,6 +136,66 @@ export function Navbar() {
             <div className="ml-4 h-8 w-24 animate-pulse bg-gray-200 rounded-full" />
           ) : isAuthenticated && user ? (
             <div className="flex items-center gap-2 ml-4">
+              <div className="relative" ref={notifRef}>
+                <button
+                  className="relative p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                  data-testid="button-notifications"
+                  onClick={() => setNotifOpen(!notifOpen)}
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border z-50">
+                    <div className="flex items-center justify-between p-3 border-b">
+                      <h3 className="font-semibold text-sm">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={() => markAllReadMutation.mutate()}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-muted-foreground">
+                          No notifications yet
+                        </div>
+                      ) : (
+                        notifications.slice(0, 20).map((notif: any) => (
+                          <div
+                            key={notif.id}
+                            className={`p-3 border-b last:border-0 cursor-pointer hover:bg-gray-50 transition-colors ${!notif.read ? "bg-blue-50/50" : ""}`}
+                            onClick={() => !notif.read && markReadMutation.mutate(notif.id)}
+                          >
+                            <div className="flex items-start gap-2">
+                              <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${
+                                notif.type === "submission_approved" ? "bg-green-500" :
+                                notif.type === "submission_rejected" ? "bg-red-500" :
+                                notif.type === "mission_completed" ? "bg-yellow-500" :
+                                "bg-blue-500"
+                              }`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium">{notif.title}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{notif.message}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {new Date(notif.createdAt).toLocaleDateString()} at {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               {(user.role === "admin" || user.role === "business") && (
                 <Link 
                   href={user.role === "admin" ? "/admin/super" : "/admin/business"} 
@@ -156,6 +270,17 @@ export function Navbar() {
                           Admin Dashboard
                         </Link>
                       )}
+                      <Link
+                        href="/profile"
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-muted rounded-md"
+                      >
+                        <Bell className="h-5 w-5" />
+                        Notifications
+                        {unreadCount > 0 && (
+                          <Badge className="ml-auto bg-red-500 text-white text-xs">{unreadCount}</Badge>
+                        )}
+                      </Link>
                       <Link
                         href="/profile"
                         onClick={() => setIsOpen(false)}

@@ -48,6 +48,34 @@ export default function Profile() {
     enabled: !!user?.id,
   });
 
+  const { data: allMissions = [] } = useQuery({
+    queryKey: ["/api/missions"],
+    queryFn: async () => {
+      const res = await fetch("/api/missions");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: allRewards = [] } = useQuery({
+    queryKey: ["/api/rewards"],
+    queryFn: async () => {
+      const res = await fetch("/api/rewards");
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const getMissionTitle = (missionId: number) => {
+    const mission = allMissions.find((m: any) => m.id === missionId);
+    return mission?.title || `Mission #${missionId}`;
+  };
+
+  const getRewardDetails = (rewardId: number) => {
+    const reward = allRewards.find((r: any) => r.id === rewardId);
+    return reward || { title: `Reward #${rewardId}`, merchant: "", cost: 0 };
+  };
+
   const handleLogout = async () => {
     await logout();
     setLocation("/");
@@ -148,27 +176,35 @@ export default function Profile() {
             </h2>
             {activeVouchers.length > 0 ? (
               <div className="grid md:grid-cols-2 gap-4">
-                {activeVouchers.map((voucher: any) => (
-                  <Card key={voucher.id} className="overflow-hidden border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow">
-                    <CardContent className="p-0 flex">
-                      <div className="flex-1 p-4">
-                        <div className="flex justify-between items-start mb-2">
+                {activeVouchers.map((voucher: any) => {
+                  const reward = getRewardDetails(voucher.rewardId);
+                  return (
+                    <Card key={voucher.id} className="overflow-hidden border-l-4 border-l-primary shadow-md hover:shadow-lg transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-3">
                           <div>
-                            <h3 className="font-bold text-lg">Reward #{voucher.rewardId}</h3>
-                            <p className="text-sm text-muted-foreground">Code: {voucher.code}</p>
+                            <h3 className="font-bold text-lg">{reward.title}</h3>
+                            {reward.merchant && (
+                              <p className="text-sm text-muted-foreground">{reward.merchant}</p>
+                            )}
                           </div>
                           <Badge variant="secondary" className="bg-green-100 text-green-700 border-0">Active</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mb-4">
+                        <div className="bg-gray-50 border-2 border-dashed rounded-lg p-4 text-center mb-3">
+                          <p className="text-xs text-muted-foreground mb-1">Redemption Code</p>
+                          <p className="text-2xl font-mono font-bold tracking-wider">{voucher.code}</p>
+                          <div className="mt-2 mx-auto w-24 h-24 bg-white border rounded-lg flex items-center justify-center">
+                            <QrCode className="h-16 w-16 text-gray-400" />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">Show this code at the merchant</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
                           Expires: {new Date(voucher.expiresAt).toLocaleDateString()}
                         </p>
-                        <Button size="sm" className="w-full gap-2">
-                          <QrCode className="h-4 w-4" /> Show Code
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed">
@@ -194,7 +230,7 @@ export default function Profile() {
                           <MapPin className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="font-medium text-sm">Mission #{mission.missionId}</p>
+                          <p className="font-medium text-sm">{getMissionTitle(mission.missionId)}</p>
                           <p className="text-xs text-muted-foreground">
                             Completed: {mission.completedAt ? new Date(mission.completedAt).toLocaleDateString() : "N/A"}
                           </p>
@@ -210,6 +246,36 @@ export default function Profile() {
                 )}
               </CardContent>
             </Card>
+
+            {userMissions.filter((m: any) => m.status !== "completed").length > 0 && (
+              <>
+                <h2 className="font-heading text-xl font-bold mb-4 mt-6 flex items-center gap-2">
+                  <Clock className="h-5 w-5" /> Missions In Progress
+                </h2>
+                <Card>
+                  <CardContent className="p-0">
+                    {userMissions.filter((m: any) => m.status !== "completed").map((mission: any, idx: number, arr: any[]) => (
+                      <Link key={mission.id} href={`/missions/${mission.missionId}`}>
+                        <div className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 ${idx !== arr.length - 1 ? 'border-b' : ''}`}>
+                          <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-full flex items-center justify-center bg-blue-100 text-blue-600">
+                              <MapPin className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{getMissionTitle(mission.missionId)}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {mission.completedTasks?.length || 0} tasks completed
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="bg-blue-100 text-blue-700">In Progress</Badge>
+                        </div>
+                      </Link>
+                    ))}
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
