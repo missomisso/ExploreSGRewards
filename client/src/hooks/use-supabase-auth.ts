@@ -12,8 +12,9 @@ interface AuthState {
 }
 
 // ✅ Next.js client env vars (must start with NEXT_PUBLIC_)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
 
 // ✅ Create client once
 let cachedClient: SupabaseClient | null = null;
