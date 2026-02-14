@@ -40,6 +40,7 @@ export default function Leaderboard() {
     const { data, error } = await supabase
       .from("users")
       .select("id, first_name, last_name, profile_image_url, level, points")
+      .eq("role", "tourist")
       .order("points", { ascending: false })
       .limit(100);
 
