@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { User } from "@shared/models/auth";
+import { supabase } from "@/lib/supabase";
 
 interface AuthState {
   user: User | null;
@@ -11,18 +11,7 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-let cachedClient: SupabaseClient | null = null;
-function getSupabaseClient(): SupabaseClient {
-  if (cachedClient) return cachedClient;
-  cachedClient = createClient(supabaseUrl, supabaseAnonKey);
-  return cachedClient;
-}
-
 async function fetchDbUser(supabaseUser: SupabaseUser): Promise<User> {
-  const supabase = getSupabaseClient();
 
   const { data, error } = await supabase
     .from("users")
@@ -74,7 +63,6 @@ export function useSupabaseAuth() {
   });
 
   useEffect(() => {
-    const supabase = getSupabaseClient();
     let unsub: (() => void) | null = null;
 
     const init = async () => {
@@ -135,7 +123,6 @@ export function useSupabaseAuth() {
     password: string,
     metadata?: { firstName?: string; lastName?: string }
   ) => {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -150,7 +137,6 @@ export function useSupabaseAuth() {
   };
 
   const signIn = async (email: string, password: string) => {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -159,7 +145,6 @@ export function useSupabaseAuth() {
   };
 
   const signInWithGoogle = async () => {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -170,7 +155,6 @@ export function useSupabaseAuth() {
   };
 
   const signInWithGithub = async () => {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
@@ -181,7 +165,6 @@ export function useSupabaseAuth() {
   };
 
   const signOut = async () => {
-    const supabase = getSupabaseClient();
     const { error } = await supabase.auth.signOut();
     if (!error) {
       setState({
@@ -196,7 +179,6 @@ export function useSupabaseAuth() {
   };
 
   const resetPassword = async (email: string) => {
-    const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset-password`,
     });
