@@ -35,6 +35,7 @@ function Router() {
       <Route path="/business" component={Business} />
       <Route path="/rewards" component={Rewards} />
       <Route path="/mission/:id" component={MissionDetail} />
+      <Route path="/missions/:id" component={MissionDetail} />
       <Route path="/profile" component={Profile} />
 
       {/* Auth Routes */}
