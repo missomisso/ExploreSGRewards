@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -20,11 +21,16 @@ import {
   Trash2,
   Save,
   GripVertical,
-  Loader2
+  Loader2,
+  ImagePlus,
+  X
 } from "lucide-react";
 
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { supabase } from "@/lib/supabase";
+
+const CATEGORIES = ["Landmarks", "Nature", "Culture", "Food", "Shopping"];
 
 type TaskType = "gps" | "photo" | "receipt" | "quiz" | "qrcode";
 
@@ -45,8 +51,8 @@ export default function CreateMission() {
   const { toast } = useToast();
   const { user, session } = useSupabaseAuth();
   const [step, setStep] = useState(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Form State
   const [missionData, setMissionData] = useState({
     title: "",
     description: "",
@@ -54,7 +60,12 @@ export default function CreateMission() {
     startDate: "",
     endDate: "",
     totalPoints: 0,
+    category: "",
   });
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [tasks, setTasks] = useState<TaskDraft[]>([]);
 
@@ -100,42 +111,92 @@ export default function CreateMission() {
     return tasks.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({ variant: "destructive", title: "Invalid file", description: "Please select an image file." });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ variant: "destructive", title: "File too large", description: "Image must be under 5MB." });
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return null;
+    setIsUploading(true);
+    try {
+      const ext = imageFile.name.split(".").pop() || "jpg";
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const filePath = `missions/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from("mission-images")
+        .upload(filePath, imageFile, { contentType: imageFile.type, upsert: false });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from("mission-images")
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload failed", description: err.message || "Could not upload image." });
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     if (!missionData.title) {
-      toast({
-        variant: "destructive",
-        title: "Missing Title",
-        description: "Please add a title for your mission.",
-      });
+      toast({ variant: "destructive", title: "Missing Title", description: "Please add a title for your mission." });
       return;
     }
     if (!missionData.description) {
-      toast({
-        variant: "destructive",
-        title: "Missing Description",
-        description: "Please add a description for your mission.",
-      });
+      toast({ variant: "destructive", title: "Missing Description", description: "Please add a description for your mission." });
       return;
     }
     if (tasks.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No Tasks",
-        description: "Please add at least one task to your mission.",
-      });
+      toast({ variant: "destructive", title: "No Tasks", description: "Please add at least one task to your mission." });
       return;
     }
 
     setIsSaving(true);
     try {
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        imageUrl = await uploadImage();
+        if (!imageUrl) {
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const missionPayload = {
         title: missionData.title,
         description: missionData.description,
         location: missionData.location,
         totalPoints: calculateTotalPoints(),
-        category: "General",
+        category: missionData.category || "General",
+        imageUrl,
         status: "active",
         businessId: user?.id || null,
         tasks: tasks.map((t, idx) => ({
@@ -167,11 +228,7 @@ export default function CreateMission() {
       });
       setTimeout(() => setLocation("/admin/business"), 1500);
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to create mission. Please try again.",
-      });
+      toast({ variant: "destructive", title: "Error", description: "Failed to create mission. Please try again." });
     } finally {
       setIsSaving(false);
     }
@@ -187,6 +244,7 @@ export default function CreateMission() {
             placeholder="e.g., Summer Food Festival Hunt" 
             value={missionData.title}
             onChange={(e) => setMissionData({...missionData, title: e.target.value})}
+            data-testid="input-mission-title"
           />
         </div>
         <div className="grid gap-2">
@@ -197,32 +255,89 @@ export default function CreateMission() {
             className="h-32"
             value={missionData.description}
             onChange={(e) => setMissionData({...missionData, description: e.target.value})}
+            data-testid="input-mission-description"
           />
         </div>
+
+        <div className="grid gap-2">
+          <Label>Mission Image</Label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+            data-testid="input-mission-image"
+          />
+          {imagePreview ? (
+            <div className="relative w-full h-48 rounded-xl overflow-hidden border border-gray-200 group">
+              <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={removeImage}
+                className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                data-testid="button-remove-image"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center justify-center w-full h-48 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-[var(--brand)] transition-colors cursor-pointer"
+              data-testid="button-upload-image"
+            >
+              <ImagePlus className="h-8 w-8 text-gray-400 mb-2" />
+              <span className="text-sm font-medium text-gray-500">Click to upload an image</span>
+              <span className="text-xs text-gray-400 mt-1">JPG, PNG up to 5MB</span>
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="category">Category</Label>
+            <Select 
+              value={missionData.category} 
+              onValueChange={(val) => setMissionData({...missionData, category: val})}
+            >
+              <SelectTrigger data-testid="select-mission-category">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="location">Location</Label>
             <Input 
               id="location" 
-              placeholder="Select store location" 
+              placeholder="e.g., Marina Bay Sands" 
               value={missionData.location}
               onChange={(e) => setMissionData({...missionData, location: e.target.value})}
+              data-testid="input-mission-location"
             />
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="duration">Validity Period</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Input 
-                type="date" 
-                value={missionData.startDate}
-                onChange={(e) => setMissionData({...missionData, startDate: e.target.value})}
-              />
-              <Input 
-                type="date" 
-                value={missionData.endDate}
-                onChange={(e) => setMissionData({...missionData, endDate: e.target.value})}
-              />
-            </div>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="duration">Validity Period</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              type="date" 
+              value={missionData.startDate}
+              onChange={(e) => setMissionData({...missionData, startDate: e.target.value})}
+              data-testid="input-mission-start-date"
+            />
+            <Input 
+              type="date" 
+              value={missionData.endDate}
+              onChange={(e) => setMissionData({...missionData, endDate: e.target.value})}
+              data-testid="input-mission-end-date"
+            />
           </div>
         </div>
       </div>
@@ -362,6 +477,11 @@ export default function CreateMission() {
           <CardDescription>Review your mission details before publishing.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {imagePreview && (
+            <div className="w-full h-40 rounded-xl overflow-hidden border border-gray-200">
+              <img src={imagePreview} alt="Mission" className="w-full h-full object-cover" />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-muted-foreground block">Title</span>
@@ -372,12 +492,20 @@ export default function CreateMission() {
               <span className="font-bold text-lg text-primary">{calculateTotalPoints()} pts</span>
             </div>
             <div>
+              <span className="text-muted-foreground block">Category</span>
+              <span className="font-medium">{missionData.category || "General"}</span>
+            </div>
+            <div>
               <span className="text-muted-foreground block">Location</span>
               <span className="font-medium">{missionData.location || "Not set"}</span>
             </div>
             <div>
               <span className="text-muted-foreground block">Tasks</span>
               <span className="font-medium">{tasks.length} steps</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground block">Image</span>
+              <span className="font-medium">{imageFile ? imageFile.name : "No image"}</span>
             </div>
           </div>
           
@@ -452,9 +580,9 @@ export default function CreateMission() {
               Next Step <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white" disabled={isSaving}>
-              {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="ml-2 h-4 w-4" />}
-              {isSaving ? "Publishing..." : "Publish Mission"}
+            <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700 text-white" disabled={isSaving || isUploading}>
+              {(isSaving || isUploading) ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="ml-2 h-4 w-4" />}
+              {isUploading ? "Uploading Image..." : isSaving ? "Publishing..." : "Publish Mission"}
             </Button>
           )}
         </div>
