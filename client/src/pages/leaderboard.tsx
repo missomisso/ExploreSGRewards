@@ -15,6 +15,7 @@
  * @example
  * export default function Leaderboard() { ... }
  */
+
 import { useState } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,13 +32,20 @@ export default function Leaderboard() {
   const [timeframe, setTimeframe] = useState("all-time");
   const { user } = useSupabaseAuth();
 
-  const { data: leaderboardData = [], isLoading } = useQuery({
-    queryKey: ["/api/leaderboard"],
-    queryFn: async () => {
-      const res = await fetch("/api/leaderboard");
-      if (!res.ok) throw new Error("Failed to fetch leaderboard");
-      return res.json();
-    },
+  const { data: leaderboardData = [], isLoading, error } = useQuery({
+  queryKey: ["leaderboard", timeframe],
+  queryFn: async () => {
+    const { supabase } = await import("@/lib/supabase");
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, first_name, last_name, profile_image_url, level, points")
+      .order("points", { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return data ?? [];
+  },
   });
 
   const getRankIcon = (rank: number) => {
@@ -73,6 +81,21 @@ export default function Leaderboard() {
       </div>
     );
   }
+
+  if (error) {
+  return (
+    <div className="min-h-screen bg-background font-sans pb-20">
+      <Navbar />
+      <div className="container mx-auto px-4 py-12 text-center">
+        <p className="text-red-600 font-medium">Failed to load leaderboard</p>
+        <p className="text-muted-foreground text-sm mt-2">
+          {error instanceof Error ? error.message : String(error)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 
   const rankedUsers = leaderboardData.map((u: any, idx: number) => ({
     ...u,
