@@ -1,8 +1,11 @@
 {
+  "buildCommand": "vite build --config vite.config.vercel.ts",
+  "outputDirectory": "dist/public",
+  "framework": null,
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "destination": "/api"
     },
     {
       "source": "/(.*)",
@@ -10,4 +13,3 @@
     }
   ]
 }
-
