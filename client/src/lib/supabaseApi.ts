@@ -1,9 +1,43 @@
 import { supabase } from "@/lib/supabase";
 
+function mapMission(row: any) {
+  return {
+    id: row.id,
+    businessId: row.business_id,
+    title: row.title,
+    description: row.description,
+    location: row.location,
+    totalPoints: row.total_points,
+    category: row.category,
+    imageUrl: row.image_url,
+    status: row.status,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    tasks: row.tasks ?? [],
+    createdAt: row.created_at,
+  };
+}
+
+function mapReward(row: any) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    cost: row.cost,
+    merchant: row.merchant,
+    icon: row.icon,
+    category: row.category,
+    expiryDays: row.expiry_days,
+    quantityLimit: row.quantity_limit,
+    businessId: row.business_id,
+    createdAt: row.created_at,
+  };
+}
+
 // USERS (leaderboard)
 export async function listLeaderboardUsers(limit = 100) {
   const { data, error } = await supabase
-    .from("leaderboard_users") // your view
+    .from("leaderboard_users")
     .select("id, first_name, last_name, profile_image_url, level, points")
     .order("points", { ascending: false })
     .limit(limit);
@@ -21,7 +55,7 @@ export async function listMissions() {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(mapMission);
 }
 
 export async function getMission(id: number) {
@@ -32,7 +66,7 @@ export async function getMission(id: number) {
     .single();
 
   if (error) throw error;
-  return data;
+  return data ? mapMission(data) : null;
 }
 
 // REWARDS
@@ -43,5 +77,5 @@ export async function listRewards() {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(mapReward);
 }
