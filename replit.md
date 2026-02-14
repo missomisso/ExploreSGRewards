@@ -49,15 +49,17 @@ shared/          # Shared code between client/server
 ```
 
 ### Key Design Patterns
-- **Storage Pattern**: `IStorage` interface abstracts database operations for testability
-- **Schema Sharing**: Drizzle schemas in `shared/` generate both TypeScript types and Zod validators
+- **Supabase Storage**: All server-side data access goes through `server/supabaseStorage.ts` which uses `supabaseAdmin` client directly (no Drizzle ORM for queries). This ensures the app works identically on Replit and Vercel.
+- **Column Mapping**: Supabase tables use snake_case; the storage layer maps to camelCase for the API responses
+- **Schema Reference**: Drizzle schemas in `shared/` define table structure and types (used for reference, not for runtime queries)
 - **API Client**: Centralized fetch wrapper in `queryClient.ts` with error handling
 
 ## External Dependencies
 
 ### Database
-- **Neon Database**: Serverless PostgreSQL (`@neondatabase/serverless`)
-- **Connection**: Requires `DATABASE_URL` environment variable
+- **Supabase PostgreSQL**: All data stored in user's Supabase database
+- **Server Access**: Via `supabaseAdmin` client using `SUPABASE_SERVICE_ROLE_KEY`
+- **Client Access**: Via `@supabase/supabase-js` using `SUPABASE_ANON_KEY`
 
 ### Authentication & Backend Services
 - **Supabase Auth**: Authentication via Supabase (email/password, Google OAuth, GitHub OAuth)

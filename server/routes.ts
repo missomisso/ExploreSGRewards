@@ -1,11 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { insertMissionSchema, insertSubmissionSchema, insertRewardSchema, insertUserRewardSchema } from "@shared/schema";
+import { sbStorage } from "./supabaseStorage";
 import { verifySupabaseToken, supabaseAdmin } from "./supabase";
-
-import { sql } from "drizzle-orm";
-import { db } from "./db";
 
 declare global {
   namespace Express {
@@ -63,26 +59,22 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Invalid or expired token" });
       }
 
-      // Derive identity from verified token, only allow limited profile fields from request
       const { firstName, lastName, profileImageUrl } = req.body;
       
       const id = supabaseUser.id;
       const email = supabaseUser.email;
 
-      // Check if user exists
-      let user = await storage.getUser(id);
+      let user = await sbStorage.getUser(id);
 
       if (user) {
-        // Update existing user with only allowed fields
-        user = await storage.updateUser(id, {
+        user = await sbStorage.updateUser(id, {
           email,
           firstName: firstName || supabaseUser.user_metadata?.first_name || user.firstName,
           lastName: lastName || supabaseUser.user_metadata?.last_name || user.lastName,
           profileImageUrl: profileImageUrl || supabaseUser.user_metadata?.avatar_url || user.profileImageUrl,
         });
       } else {
-        // Create new user
-        user = await storage.createUser({
+        user = await sbStorage.createUser({
           id,
           email,
           firstName: firstName || supabaseUser.user_metadata?.first_name || supabaseUser.user_metadata?.full_name?.split(" ")[0] || null,
@@ -101,7 +93,6 @@ export async function registerRoutes(
     }
   });
 
-  // Get current user by ID (for client-side auth checks)
   app.get("/api/auth/user/:id", async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
@@ -116,13 +107,13 @@ export async function registerRoutes(
       
       const requestedId = req.params.id;
       if (authUser.id !== requestedId) {
-        const currentUser = await storage.getUser(authUser.id);
+        const currentUser = await sbStorage.getUser(authUser.id);
         if (!currentUser || currentUser.role !== "admin") {
           return res.status(403).json({ error: "Access denied" });
         }
       }
 
-      const user = await storage.getUser(requestedId);
+      const user = await sbStorage.getUser(requestedId);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -135,9 +126,9 @@ export async function registerRoutes(
   // ===== DB CHECK (Supabase connectivity) =====
   app.get("/api/db-check", async (_req, res) => {
     try {
-      const result = await db.execute(sql`select now() as now`);
-      const now = (result as any).rows?.[0]?.now ?? (result as any)[0]?.now;
-      res.json({ ok: true, now });
+      const { data, error } = await supabaseAdmin.from("users").select("id").limit(1);
+      if (error) throw error;
+      res.json({ ok: true, connected: true });
     } catch (err: any) {
       res.status(500).json({
         ok: false,
@@ -147,24 +138,19 @@ export async function registerRoutes(
   });
 
   app.get("/api/db-tables", async (_req, res) => {
-    const result = await db.execute(sql`
-      select tablename
-      from pg_tables
-      where schemaname = 'public'
-      order by tablename
-    `);
-
-    const rows = (result as any).rows ?? result;
-    res.json(rows);
+    try {
+      const tables = ["users", "missions", "user_missions", "submissions", "rewards", "user_rewards", "notifications"];
+      res.json(tables.map(t => ({ tablename: t })));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to list tables" });
+    }
   });
 
-
-  
   // ===== MISSIONS =====
   app.get("/api/missions", async (req, res) => {
     try {
       const all = req.query.all === "true";
-      const missions = await storage.getMissions(!all);
+      const missions = await sbStorage.getMissions(!all);
       res.json(missions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch missions" });
@@ -174,7 +160,7 @@ export async function registerRoutes(
   app.get("/api/missions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const mission = await storage.getMission(id);
+      const mission = await sbStorage.getMission(id);
       if (!mission) {
         return res.status(404).json({ error: "Mission not found" });
       }
@@ -186,7 +172,6 @@ export async function registerRoutes(
 
   app.post("/api/missions", async (req, res) => {
     try {
-      // Parse date strings to Date objects
       const body = { ...req.body };
       if (body.startDate && typeof body.startDate === 'string') {
         body.startDate = new Date(body.startDate);
@@ -194,15 +179,11 @@ export async function registerRoutes(
       if (body.endDate && typeof body.endDate === 'string') {
         body.endDate = new Date(body.endDate);
       }
-      const validated = insertMissionSchema.parse(body);
-      const mission = await storage.createMission(validated);
+      const mission = await sbStorage.createMission(body);
       res.status(201).json(mission);
     } catch (error: any) {
       console.error("Mission creation error:", error?.message || error);
-      if (error?.errors) {
-        console.error("Validation errors:", JSON.stringify(error.errors, null, 2));
-      }
-      res.status(400).json({ error: "Invalid mission data", details: error?.errors || error?.message });
+      res.status(400).json({ error: "Invalid mission data", details: error?.message });
     }
   });
 
@@ -216,7 +197,7 @@ export async function registerRoutes(
           updateData[field] = req.body[field];
         }
       }
-      const updated = await storage.updateMission(id, updateData);
+      const updated = await sbStorage.updateMission(id, updateData);
       if (!updated) {
         return res.status(404).json({ error: "Mission not found" });
       }
@@ -229,15 +210,15 @@ export async function registerRoutes(
   app.delete("/api/missions/:id", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const mission = await storage.getMission(id);
+      const mission = await sbStorage.getMission(id);
       if (!mission) {
         return res.status(404).json({ error: "Mission not found" });
       }
-      const user = await storage.getUser(req.userId!);
+      const user = await sbStorage.getUser(req.userId!);
       if (user?.role !== "admin" && mission.businessId !== req.userId) {
         return res.status(403).json({ error: "Not authorized to delete this mission" });
       }
-      await storage.deleteMission(id);
+      await sbStorage.deleteMission(id);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete mission" });
@@ -249,13 +230,12 @@ export async function registerRoutes(
     try {
       const { userId, missionId } = req.body;
       
-      // Check if user mission already exists
-      const existing = await storage.getUserMission(userId, missionId);
+      const existing = await sbStorage.getUserMission(userId, missionId);
       if (existing) {
         return res.json(existing);
       }
 
-      const userMission = await storage.createUserMission({
+      const userMission = await sbStorage.createUserMission({
         userId,
         missionId,
         status: "in_progress",
@@ -270,7 +250,7 @@ export async function registerRoutes(
   app.get("/api/user-missions/:userId", async (req, res) => {
     try {
       const userId = req.params.userId;
-      const userMissions = await storage.getUserMissions(userId);
+      const userMissions = await sbStorage.getUserMissions(userId);
       res.json(userMissions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user missions" });
@@ -280,7 +260,7 @@ export async function registerRoutes(
   app.patch("/api/user-missions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updated = await storage.updateUserMission(id, req.body);
+      const updated = await sbStorage.updateUserMission(id, req.body);
       if (!updated) {
         return res.status(404).json({ error: "User mission not found" });
       }
@@ -299,7 +279,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      const mission = await storage.getMission(missionId);
+      const mission = await sbStorage.getMission(missionId);
       if (!mission) {
         return res.status(404).json({ error: "Mission not found" });
       }
@@ -309,10 +289,9 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Task not found" });
       }
 
-      // Get or create user mission progress
-      let userMission = await storage.getUserMission(userId, missionId);
+      let userMission = await sbStorage.getUserMission(userId, missionId);
       if (!userMission) {
-        userMission = await storage.createUserMission({
+        userMission = await sbStorage.createUserMission({
           userId,
           missionId,
           status: "in_progress",
@@ -320,21 +299,17 @@ export async function registerRoutes(
         });
       }
 
-      // Check if task already completed
-      if (userMission.completedTasks.includes(taskId)) {
+      if (userMission!.completedTasks.includes(taskId)) {
         return res.status(400).json({ error: "Task already completed" });
       }
 
-      // Handle different task types
       const autoValidatedTypes = ["gps", "quiz", "qrcode"];
       const manualReviewTypes = ["photo", "receipt"];
 
       if (autoValidatedTypes.includes(taskType)) {
-        // Auto-validate: GPS, Quiz, QR Code
         let isValid = true;
 
         if (taskType === "quiz") {
-          // Validate quiz answer
           const correctAnswer = (task as any).correctAnswer;
           const userAnswer = parseInt(answer);
           isValid = correctAnswer === userAnswer;
@@ -344,22 +319,16 @@ export async function registerRoutes(
           }
         }
 
-        // GPS and QR code are simulated as always valid for now
-        // In production, would verify GPS coordinates or QR code data
+        const completedTasks = [...userMission!.completedTasks, taskId];
+        await sbStorage.updateUserMission(userMission!.id, { completedTasks });
 
-        // Mark task as completed and award points
-        const completedTasks = [...userMission.completedTasks, taskId];
-        await storage.updateUserMission(userMission.id, { completedTasks });
-
-        // Award points for this task
-        const user = await storage.getUser(userId);
+        const user = await sbStorage.getUser(userId);
         if (user) {
-          await storage.updateUserPoints(userId, user.points + task.points);
+          await sbStorage.updateUserPoints(userId, user.points + task.points);
         }
 
-        // Check if all tasks completed
         if (completedTasks.length === mission.tasks.length) {
-          await storage.updateUserMission(userMission.id, {
+          await sbStorage.updateUserMission(userMission!.id, {
             status: "completed",
             completedAt: new Date(),
           });
@@ -373,8 +342,7 @@ export async function registerRoutes(
         });
 
       } else if (manualReviewTypes.includes(taskType)) {
-        // Create submission for manual review
-        const submission = await storage.createSubmission({
+        const submission = await sbStorage.createSubmission({
           userId,
           missionId,
           taskId,
@@ -386,7 +354,7 @@ export async function registerRoutes(
         return res.json({ 
           success: true, 
           pendingReview: true,
-          submissionId: submission.id,
+          submissionId: submission!.id,
           message: "Your submission is pending review"
         });
       }
@@ -401,8 +369,7 @@ export async function registerRoutes(
   // ===== SUBMISSIONS (Task Verification) =====
   app.post("/api/submissions", async (req, res) => {
     try {
-      const validated = insertSubmissionSchema.parse(req.body);
-      const submission = await storage.createSubmission(validated);
+      const submission = await sbStorage.createSubmission(req.body);
       res.status(201).json(submission);
     } catch (error) {
       res.status(400).json({ error: "Invalid submission data" });
@@ -413,7 +380,7 @@ export async function registerRoutes(
     try {
       const missionId = req.query.missionId ? parseInt(req.query.missionId as string) : undefined;
       const status = req.query.status as string | undefined;
-      const submissions = await storage.getSubmissions(missionId, status);
+      const submissions = await sbStorage.getSubmissions(missionId, status);
       res.json(submissions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch submissions" });
@@ -423,23 +390,23 @@ export async function registerRoutes(
   app.patch("/api/submissions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const updated = await storage.updateSubmission(id, req.body);
+      const updated = await sbStorage.updateSubmission(id, req.body);
       if (!updated) {
         return res.status(404).json({ error: "Submission not found" });
       }
 
       const { userId, missionId, taskId } = updated;
-      const mission = await storage.getMission(missionId);
+      const mission = await sbStorage.getMission(missionId);
       const task = mission?.tasks.find((t: any) => t.id === taskId);
 
       if (req.body.status === "approved") {
         if (mission && task) {
-          const user = await storage.getUser(userId);
+          const user = await sbStorage.getUser(userId);
           if (user) {
-            await storage.updateUserPoints(userId, user.points + task.points);
+            await sbStorage.updateUserPoints(userId, user.points + task.points);
           }
 
-          await storage.createNotification({
+          await sbStorage.createNotification({
             userId,
             type: "submission_approved",
             title: "Task Approved!",
@@ -448,9 +415,9 @@ export async function registerRoutes(
             relatedId: missionId,
           });
 
-          let userMission = await storage.getUserMission(userId, missionId);
+          let userMission = await sbStorage.getUserMission(userId, missionId);
           if (!userMission) {
-            userMission = await storage.createUserMission({
+            userMission = await sbStorage.createUserMission({
               userId,
               missionId,
               status: "in_progress",
@@ -458,16 +425,16 @@ export async function registerRoutes(
             });
           }
           
-          const completedTasks = [...userMission.completedTasks, taskId];
-          await storage.updateUserMission(userMission.id, { completedTasks });
+          const completedTasks = [...userMission!.completedTasks, taskId];
+          await sbStorage.updateUserMission(userMission!.id, { completedTasks });
 
           if (completedTasks.length === mission.tasks.length) {
-            await storage.updateUserMission(userMission.id, {
+            await sbStorage.updateUserMission(userMission!.id, {
               status: "completed",
               completedAt: new Date(),
             });
 
-            await storage.createNotification({
+            await sbStorage.createNotification({
               userId,
               type: "mission_completed",
               title: "Mission Complete!",
@@ -480,7 +447,7 @@ export async function registerRoutes(
       } else if (req.body.status === "rejected") {
         if (task) {
           const reviewNote = req.body.reviewNote || updated.reviewNote;
-          await storage.createNotification({
+          await sbStorage.createNotification({
             userId,
             type: "submission_rejected",
             title: "Submission Rejected",
@@ -500,22 +467,8 @@ export async function registerRoutes(
   // ===== REWARDS =====
   app.get("/api/rewards", async (req, res) => {
     try {
-      const result = await db.execute(sql`
-        SELECT 
-          r.*,
-          COALESCE(COUNT(ur.id), 0) as claimed_count
-        FROM rewards r
-        LEFT JOIN user_rewards ur ON r.id = ur.reward_id
-        GROUP BY r.id
-        ORDER BY r.created_at DESC
-      `);
-      const rewards = ((result as any).rows || result).map((r: any) => ({
-        ...r,
-        claimedCount: Number(r.claimed_count) || 0,
-        remainingQuantity: r.quantity_limit ? Math.max(0, r.quantity_limit - (Number(r.claimed_count) || 0)) : null,
-        isSoldOut: r.quantity_limit ? (Number(r.claimed_count) || 0) >= r.quantity_limit : false,
-      }));
-      res.json(rewards);
+      const rewardsWithCounts = await sbStorage.getRewardsWithCounts();
+      res.json(rewardsWithCounts);
     } catch (error) {
       console.error("Error fetching rewards:", error);
       res.status(500).json({ error: "Failed to fetch rewards" });
@@ -533,17 +486,17 @@ export async function registerRoutes(
       if (authError || !authUser) {
         return res.status(401).json({ error: "Invalid token" });
       }
-      const currentUser = await storage.getUser(authUser.id);
+      const currentUser = await sbStorage.getUser(authUser.id);
       if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "business")) {
         return res.status(403).json({ error: "Admin or business access required" });
       }
 
-      const validated = insertRewardSchema.parse({
+      const rewardData = {
         ...req.body,
         businessId: currentUser.role === "business" ? authUser.id : req.body.businessId,
         merchant: currentUser.role === "business" ? (currentUser.businessName || req.body.merchant) : req.body.merchant,
-      });
-      const reward = await storage.createReward(validated);
+      };
+      const reward = await sbStorage.createReward(rewardData);
       res.status(201).json(reward);
     } catch (error) {
       res.status(400).json({ error: "Invalid reward data" });
@@ -561,13 +514,13 @@ export async function registerRoutes(
       if (authError || !authUser) {
         return res.status(401).json({ error: "Invalid token" });
       }
-      const currentUser = await storage.getUser(authUser.id);
+      const currentUser = await sbStorage.getUser(authUser.id);
       if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "business")) {
         return res.status(403).json({ error: "Admin or business access required" });
       }
 
       const id = parseInt(req.params.id);
-      const reward = await storage.getReward(id);
+      const reward = await sbStorage.getReward(id);
       if (!reward) {
         return res.status(404).json({ error: "Reward not found" });
       }
@@ -575,7 +528,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Cannot delete other businesses' rewards" });
       }
 
-      await storage.deleteReward(id);
+      await sbStorage.deleteReward(id);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete reward" });
@@ -586,8 +539,8 @@ export async function registerRoutes(
     try {
       const { userId, rewardId } = req.body;
 
-      const user = await storage.getUser(userId);
-      const reward = await storage.getReward(rewardId);
+      const user = await sbStorage.getUser(userId);
+      const reward = await sbStorage.getReward(rewardId);
 
       if (!user || !reward) {
         return res.status(404).json({ error: "User or reward not found" });
@@ -597,26 +550,20 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Insufficient points" });
       }
 
-      // Check quantity limit
       if (reward.quantityLimit) {
-        const claimedResult = await db.execute(sql`
-          SELECT COUNT(*) as count FROM user_rewards WHERE reward_id = ${rewardId}
-        `);
-        const claimedCount = Number(((claimedResult as any).rows || claimedResult)[0]?.count || 0);
+        const claimedCount = await sbStorage.getClaimedCount(rewardId);
         if (claimedCount >= reward.quantityLimit) {
           return res.status(400).json({ error: "This reward is sold out" });
         }
       }
 
-      // Deduct points
-      await storage.updateUserPoints(userId, user.points - reward.cost);
+      await sbStorage.updateUserPoints(userId, user.points - reward.cost);
 
-      // Generate code
       const code = Math.random().toString(36).substring(2, 10).toUpperCase();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + (reward.expiryDays || 30));
 
-      const userReward = await storage.createUserReward({
+      const userReward = await sbStorage.createUserReward({
         userId,
         rewardId,
         code,
@@ -633,7 +580,7 @@ export async function registerRoutes(
   app.get("/api/user-rewards/:userId", async (req, res) => {
     try {
       const userId = req.params.userId;
-      const userRewards = await storage.getUserRewards(userId);
+      const userRewards = await sbStorage.getUserRewards(userId);
       res.json(userRewards);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user rewards" });
@@ -655,13 +602,13 @@ export async function registerRoutes(
       
       const id = req.params.id;
       if (authUser.id !== id) {
-        const currentUser = await storage.getUser(authUser.id);
+        const currentUser = await sbStorage.getUser(authUser.id);
         if (!currentUser || currentUser.role !== "admin") {
           return res.status(403).json({ error: "Access denied" });
         }
       }
 
-      const user = await storage.getUser(id);
+      const user = await sbStorage.getUser(id);
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -695,7 +642,7 @@ export async function registerRoutes(
           updateData[field] = req.body[field];
         }
       }
-      const updated = await storage.updateUser(id, updateData);
+      const updated = await sbStorage.updateUser(id, updateData);
       if (!updated) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -716,7 +663,7 @@ export async function registerRoutes(
       if (authError || !authUser) {
         return res.status(401).json({ error: "Invalid token" });
       }
-      const adminUser = await storage.getUser(authUser.id);
+      const adminUser = await sbStorage.getUser(authUser.id);
       if (!adminUser || adminUser.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -735,7 +682,7 @@ export async function registerRoutes(
         }
       }
       
-      const updated = await storage.updateUser(id, updateData);
+      const updated = await sbStorage.updateUser(id, updateData);
       if (!updated) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -748,14 +695,7 @@ export async function registerRoutes(
   // ===== LEADERBOARD =====
   app.get("/api/leaderboard", async (_req, res) => {
     try {
-      const result = await db.execute(sql`
-        SELECT id, first_name, last_name, profile_image_url, points, level, role
-        FROM users
-        WHERE role = 'tourist'
-        ORDER BY points DESC
-        LIMIT 50
-      `);
-      const users = (result as any).rows || result;
+      const users = await sbStorage.getLeaderboard();
       res.json(users);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch leaderboard" });
@@ -774,18 +714,12 @@ export async function registerRoutes(
       if (authError || !authUser) {
         return res.status(401).json({ error: "Invalid token" });
       }
-      const adminUser = await storage.getUser(authUser.id);
+      const adminUser = await sbStorage.getUser(authUser.id);
       if (!adminUser || adminUser.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
 
-      const result = await db.execute(sql`
-        SELECT id, first_name, last_name, email, profile_image_url, points, level, role, created_at
-        FROM users
-        ORDER BY created_at DESC
-        LIMIT 100
-      `);
-      const users = (result as any).rows || result;
+      const users = await sbStorage.getAllUsers();
       res.json(users);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch users" });
@@ -804,25 +738,34 @@ export async function registerRoutes(
       if (authError || !authUser) {
         return res.status(401).json({ error: "Invalid token" });
       }
-      const adminUser = await storage.getUser(authUser.id);
+      const adminUser = await sbStorage.getUser(authUser.id);
       if (!adminUser || adminUser.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
 
-      const result = await db.execute(sql`
-        SELECT 
-          u.id, u.first_name, u.last_name, u.email, u.profile_image_url, u.points, u.level,
-          COUNT(DISTINCT um.id) as missions_started,
-          COUNT(DISTINCT CASE WHEN um.status = 'completed' THEN um.id END) as missions_completed
-        FROM users u
-        LEFT JOIN user_missions um ON u.id = um.user_id
-        WHERE u.role = 'tourist'
-        GROUP BY u.id, u.first_name, u.last_name, u.email, u.profile_image_url, u.points, u.level
-        ORDER BY u.points DESC
-        LIMIT 50
-      `);
-      const users = (result as any).rows || result;
-      res.json(users);
+      const { data: tourists, error: tError } = await supabaseAdmin
+        .from("users")
+        .select("id, first_name, last_name, email, profile_image_url, points, level")
+        .eq("role", "tourist")
+        .order("points", { ascending: false })
+        .limit(50);
+      if (tError) throw tError;
+
+      const results = [];
+      for (const t of (tourists ?? [])) {
+        const { data: ums } = await supabaseAdmin
+          .from("user_missions")
+          .select("id, status")
+          .eq("user_id", t.id);
+        const missionsStarted = ums?.length ?? 0;
+        const missionsCompleted = ums?.filter((um: any) => um.status === "completed").length ?? 0;
+        results.push({
+          ...t,
+          missions_started: missionsStarted,
+          missions_completed: missionsCompleted,
+        });
+      }
+      res.json(results);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user progress" });
     }
@@ -840,44 +783,42 @@ export async function registerRoutes(
       if (authError || !authUser) {
         return res.status(401).json({ error: "Invalid token" });
       }
-      const currentUser = await storage.getUser(authUser.id);
+      const currentUser = await sbStorage.getUser(authUser.id);
       if (!currentUser || (currentUser.role !== "admin" && currentUser.role !== "business")) {
         return res.status(403).json({ error: "Admin or business access required" });
       }
 
-      let result;
-      if (currentUser.role === "admin") {
-        result = await db.execute(sql`
-          SELECT 
-            m.id, m.title, m.total_points, m.status, m.category,
-            COUNT(DISTINCT um.user_id) as users_started,
-            COUNT(DISTINCT CASE WHEN um.status = 'completed' THEN um.user_id END) as users_completed,
-            COUNT(DISTINCT s.id) as total_submissions,
-            COUNT(DISTINCT CASE WHEN s.status = 'pending' THEN s.id END) as pending_submissions
-          FROM missions m
-          LEFT JOIN user_missions um ON m.id = um.mission_id
-          LEFT JOIN submissions s ON m.id = s.mission_id
-          GROUP BY m.id, m.title, m.total_points, m.status, m.category
-          ORDER BY users_started DESC
-        `);
-      } else {
-        result = await db.execute(sql`
-          SELECT 
-            m.id, m.title, m.total_points, m.status, m.category,
-            COUNT(DISTINCT um.user_id) as users_started,
-            COUNT(DISTINCT CASE WHEN um.status = 'completed' THEN um.user_id END) as users_completed,
-            COUNT(DISTINCT s.id) as total_submissions,
-            COUNT(DISTINCT CASE WHEN s.status = 'pending' THEN s.id END) as pending_submissions
-          FROM missions m
-          LEFT JOIN user_missions um ON m.id = um.mission_id
-          LEFT JOIN submissions s ON m.id = s.mission_id
-          WHERE m.business_id = ${currentUser.id}
-          GROUP BY m.id, m.title, m.total_points, m.status, m.category
-          ORDER BY users_started DESC
-        `);
+      let missionQuery = supabaseAdmin.from("missions").select("id, title, total_points, status, category, business_id");
+      if (currentUser.role === "business") {
+        missionQuery = missionQuery.eq("business_id", currentUser.id);
       }
-      const stats = (result as any).rows || result;
-      res.json(stats);
+      const { data: missionsList, error: mErr } = await missionQuery;
+      if (mErr) throw mErr;
+
+      const results = [];
+      for (const m of (missionsList ?? [])) {
+        const { data: ums } = await supabaseAdmin
+          .from("user_missions")
+          .select("user_id, status")
+          .eq("mission_id", m.id);
+        const { data: subs } = await supabaseAdmin
+          .from("submissions")
+          .select("id, status")
+          .eq("mission_id", m.id);
+
+        results.push({
+          id: m.id,
+          title: m.title,
+          total_points: m.total_points,
+          status: m.status,
+          category: m.category,
+          users_started: ums?.length ?? 0,
+          users_completed: ums?.filter((u: any) => u.status === "completed").length ?? 0,
+          total_submissions: subs?.length ?? 0,
+          pending_submissions: subs?.filter((s: any) => s.status === "pending").length ?? 0,
+        });
+      }
+      res.json(results);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch mission stats" });
     }
@@ -890,7 +831,7 @@ export async function registerRoutes(
       if (!userId) {
         return res.status(400).json({ error: "userId is required" });
       }
-      await storage.markAllNotificationsRead(userId);
+      await sbStorage.markAllNotificationsRead(userId);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark all notifications as read" });
@@ -900,7 +841,7 @@ export async function registerRoutes(
   app.get("/api/notifications/:userId", async (req, res) => {
     try {
       const userId = req.params.userId;
-      const notifications = await storage.getNotifications(userId);
+      const notifications = await sbStorage.getNotifications(userId);
       res.json(notifications);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch notifications" });
@@ -910,7 +851,7 @@ export async function registerRoutes(
   app.post("/api/notifications/:id/read", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.markNotificationRead(id);
+      await sbStorage.markNotificationRead(id);
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to mark notification as read" });
@@ -922,7 +863,7 @@ export async function registerRoutes(
     try {
       const userId = req.params.userId;
       const missionId = parseInt(req.params.missionId);
-      const submissions = await storage.getUserSubmissions(userId, missionId);
+      const submissions = await sbStorage.getUserSubmissions(userId, missionId);
       res.json(submissions);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user submissions" });
