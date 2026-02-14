@@ -22,8 +22,28 @@ import {
   GripVertical,
   Loader2
 } from "lucide-react";
+
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+
+const qc = useQueryClient();
+const createMission = useMutation({
+  mutationFn: async (payload: any) => {
+    const { data, error } = await supabase
+      .from("missions")
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+  onSuccess: () => {
+    qc.invalidateQueries({ queryKey: ["missions"] });
+  },
+});
 
 type TaskType = "gps" | "photo" | "receipt" | "quiz" | "qrcode";
 
