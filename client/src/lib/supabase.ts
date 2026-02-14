@@ -1,10 +1,38 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+let _client: SupabaseClient | null = null;
+let _initPromise: Promise<SupabaseClient> | null = null;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase environment variables are missing. VITE_SUPABASE_URL:", supabaseUrl ? "set" : "missing", "VITE_SUPABASE_ANON_KEY:", supabaseAnonKey ? "set" : "missing");
+async function initClient(): Promise<SupabaseClient> {
+  let url = (import.meta.env.VITE_SUPABASE_URL as string) || "";
+  let anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "";
+
+  if (!url || !anonKey) {
+    try {
+      const res = await fetch("/api/config/supabase");
+      if (res.ok) {
+        const cfg = await res.json();
+        url = cfg.url || url;
+        anonKey = cfg.anonKey || anonKey;
+      }
+    } catch {
+      _initPromise = null;
+    }
+  }
+
+  if (!url || !anonKey) {
+    _initPromise = null;
+    throw new Error("Supabase configuration is missing.");
+  }
+
+  _client = createClient(url, anonKey);
+  return _client;
 }
 
-export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "");
+export function getSupabase(): Promise<SupabaseClient> {
+  if (_client) return Promise.resolve(_client);
+  if (!_initPromise) _initPromise = initClient();
+  return _initPromise;
+}
+
+getSupabase().catch(() => {});

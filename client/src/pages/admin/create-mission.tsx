@@ -28,7 +28,7 @@ import {
 
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 const CATEGORIES = ["Landmarks", "Nature", "Culture", "Food", "Shopping"];
 
@@ -144,6 +144,7 @@ export default function CreateMission() {
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const filePath = `missions/${fileName}`;
 
+      const supabase = await getSupabase();
       const { error } = await supabase.storage
         .from("mission-images")
         .upload(filePath, imageFile, { contentType: imageFile.type, upsert: false });

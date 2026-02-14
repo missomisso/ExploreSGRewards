@@ -35,7 +35,8 @@ export default function Leaderboard() {
   const { data: leaderboardData = [], isLoading, error } = useQuery({
   queryKey: ["leaderboard", timeframe],
   queryFn: async () => {
-    const { supabase } = await import("@/lib/supabase");
+    const { getSupabase } = await import("@/lib/supabase");
+    const supabase = await getSupabase();
 
     const { data, error } = await supabase
       .from("users")

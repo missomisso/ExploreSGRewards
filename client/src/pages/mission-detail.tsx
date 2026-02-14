@@ -12,7 +12,7 @@ import { Link, useLocation, useParams } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 type TaskType = "gps" | "photo" | "receipt" | "quiz" | "qrcode";
 
@@ -116,6 +116,7 @@ export default function MissionDetail() {
   });
 
   const uploadFileToSupabase = async (file: File, taskId: string): Promise<string> => {
+    const supabase = await getSupabase();
     const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${user?.id}/${missionId}/${taskId}_${Date.now()}.${ext}`;
 

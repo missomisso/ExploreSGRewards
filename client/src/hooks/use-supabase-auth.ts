@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { User } from "@shared/models/auth";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 interface AuthState {
   user: User | null;
@@ -12,7 +12,7 @@ interface AuthState {
 }
 
 async function fetchDbUser(supabaseUser: SupabaseUser): Promise<User> {
-
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("users")
     .select("*")
@@ -66,6 +66,7 @@ export function useSupabaseAuth() {
     let unsub: (() => void) | null = null;
 
     const init = async () => {
+      const supabase = await getSupabase();
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user) {
@@ -123,6 +124,7 @@ export function useSupabaseAuth() {
     password: string,
     metadata?: { firstName?: string; lastName?: string }
   ) => {
+    const supabase = await getSupabase();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -137,6 +139,7 @@ export function useSupabaseAuth() {
   };
 
   const signIn = async (email: string, password: string) => {
+    const supabase = await getSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -145,6 +148,7 @@ export function useSupabaseAuth() {
   };
 
   const signInWithGoogle = async () => {
+    const supabase = await getSupabase();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -155,6 +159,7 @@ export function useSupabaseAuth() {
   };
 
   const signInWithGithub = async () => {
+    const supabase = await getSupabase();
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
@@ -165,6 +170,7 @@ export function useSupabaseAuth() {
   };
 
   const signOut = async () => {
+    const supabase = await getSupabase();
     const { error } = await supabase.auth.signOut();
     if (!error) {
       setState({
@@ -179,6 +185,7 @@ export function useSupabaseAuth() {
   };
 
   const resetPassword = async (email: string) => {
+    const supabase = await getSupabase();
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset-password`,
     });

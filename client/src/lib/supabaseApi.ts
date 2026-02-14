@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 function mapMission(row: any) {
   return {
@@ -34,8 +34,8 @@ function mapReward(row: any) {
   };
 }
 
-// USERS (leaderboard)
 export async function listLeaderboardUsers(limit = 100) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("leaderboard_users")
     .select("id, first_name, last_name, profile_image_url, level, points")
@@ -46,8 +46,8 @@ export async function listLeaderboardUsers(limit = 100) {
   return data ?? [];
 }
 
-// MISSIONS
 export async function listMissions() {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("missions")
     .select("*")
@@ -59,6 +59,7 @@ export async function listMissions() {
 }
 
 export async function getMission(id: number) {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("missions")
     .select("*")
@@ -69,8 +70,8 @@ export async function getMission(id: number) {
   return data ? mapMission(data) : null;
 }
 
-// REWARDS
 export async function listRewards() {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("rewards")
     .select("*")

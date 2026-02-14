@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export default function VerificationCenter() {
   const { toast } = useToast();
@@ -42,6 +42,7 @@ export default function VerificationCenter() {
   const { data: users = {} } = useQuery({
     queryKey: ["supabase-users-for-verification", submissions],
     queryFn: async () => {
+      const supabase = await getSupabase();
       const userIds = Array.from(new Set(submissions.map((s: any) => s.userId))) as string[];
       if (userIds.length === 0) return {};
       const { data } = await supabase
@@ -58,6 +59,7 @@ export default function VerificationCenter() {
   const { data: missions = {} } = useQuery({
     queryKey: ["missions-for-verification", submissions],
     queryFn: async () => {
+      const supabase = await getSupabase();
       const missionIds = Array.from(new Set(submissions.map((s: any) => s.missionId))) as number[];
       if (missionIds.length === 0) return {};
       const { data } = await supabase
