@@ -265,8 +265,8 @@ export const sbStorage = {
       .select("*")
       .eq("user_id", userId)
       .eq("mission_id", missionId)
-      .single();
-    if (error) return undefined;
+      .maybeSingle();
+    if (error || !data) return undefined;
     return mapUserMission(data);
   },
 

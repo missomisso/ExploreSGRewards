@@ -447,7 +447,7 @@ app.post("/api/user-missions", async (req, res) => {
       .select("*")
       .eq("user_id", userId)
       .eq("mission_id", missionId)
-      .single();
+      .maybeSingle();
     if (existing) {
       return res.json(mapUserMission(existing));
     }
@@ -463,8 +463,9 @@ app.post("/api/user-missions", async (req, res) => {
       .single();
     if (error) throw error;
     res.status(201).json(mapUserMission(data));
-  } catch (error) {
-    res.status(400).json({ error: "Failed to start mission" });
+  } catch (error: any) {
+    console.error("Failed to start mission:", error?.message || error);
+    res.status(400).json({ error: error?.message || "Failed to start mission" });
   }
 });
 
@@ -533,7 +534,7 @@ app.post("/api/tasks/complete", async (req, res) => {
       .select("*")
       .eq("user_id", userId)
       .eq("mission_id", missionId)
-      .single();
+      .maybeSingle();
 
     if (!userMissionRow) {
       const { data: created, error } = await supabaseAdmin
@@ -733,7 +734,7 @@ app.patch("/api/submissions/:id", async (req, res) => {
           .select("*")
           .eq("user_id", userId)
           .eq("mission_id", missionId)
-          .single();
+          .maybeSingle();
 
         if (!umRow) {
           const { data: created } = await supabaseAdmin
