@@ -41,7 +41,7 @@ import { Search, ShoppingCart, Heart, Star, Filter, MapPin } from "lucide-react"
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Mission } from "@shared/schema";
-import { listMissions } from "@/lib/supabaseAPI";
+import { listMissions } from "@/lib/supabaseApi";
 
 const CATEGORIES = ["All", "Landmarks", "Nature", "Culture", "Food", "Shopping"];
 
