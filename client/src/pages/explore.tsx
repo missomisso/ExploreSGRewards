@@ -41,6 +41,7 @@ import { Search, ShoppingCart, Heart, Star, Filter, MapPin } from "lucide-react"
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import type { Mission } from "@shared/schema";
+import { listMissions } from "@/lib/supabaseAPI";
 
 const CATEGORIES = ["All", "Landmarks", "Nature", "Culture", "Food", "Shopping"];
 
@@ -51,8 +52,9 @@ export default function Explore() {
   const [sortOption, setSortOption] = useState("recommended");
   const [favorites, setFavorites] = useState<number[]>([]);
 
-  const { data: missions = [], isLoading } = useQuery<Mission[]>({
-    queryKey: ["/api/missions"],
+  const { data: missions = [], isLoading, error } = useQuery({
+  queryKey: ["missions"],
+  queryFn: listMissions,
   });
 
   // Load favorites from local storage on mount
