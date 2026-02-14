@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
 console.log("SUPABASE KEY:", import.meta.env.VITE_SUPABASE_ANON_KEY);
+console.log("Vercel URL:", import.meta.env.VITE_SUPABASE_URL);
+
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
