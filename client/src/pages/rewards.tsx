@@ -24,7 +24,7 @@ const colorMap: Record<string, string> = {
 };
 
 export default function Rewards() {
-  const { user, isAuthenticated, session } = useSupabaseAuth();
+  const { user, isAuthenticated, session, refreshUser } = useSupabaseAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedReward, setSelectedReward] = useState<any>(null);
@@ -72,6 +72,7 @@ export default function Rewards() {
       setSelectedReward(null);
       queryClient.invalidateQueries({ queryKey: ["/api/user-rewards"] });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      refreshUser();
     },
     onError: (error: Error) => {
       toast({

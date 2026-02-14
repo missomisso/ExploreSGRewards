@@ -203,6 +203,12 @@ export function useSupabaseAuth() {
     return { data, error };
   };
 
+  const refreshUser = useCallback(async () => {
+    if (!state.supabaseUser) return;
+    const dbUser = await fetchDbUser(state.supabaseUser);
+    setState((prev) => ({ ...prev, user: dbUser }));
+  }, [state.supabaseUser]);
+
   const getRedirectPath = useCallback(() => {
     if (!state.user) return "/";
     switch (state.user.role) {
@@ -225,5 +231,6 @@ export function useSupabaseAuth() {
     resetPassword,
     logout: signOut,
     getRedirectPath,
+    refreshUser,
   };
 }

@@ -9,19 +9,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  FileText, 
-  Camera, 
-  ArrowLeft, 
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
+  FileText,
+  Camera,
+  ArrowLeft,
   Filter,
   ZoomIn,
   Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 
 export default function VerificationCenter() {
   const { toast } = useToast();
@@ -38,6 +39,65 @@ export default function VerificationCenter() {
     },
   });
 
+  const { data: users = {} } = useQuery({
+    queryKey: ["supabase-users-for-verification", submissions],
+    queryFn: async () => {
+      const userIds = Array.from(new Set(submissions.map((s: any) => s.userId))) as string[];
+      if (userIds.length === 0) return {};
+      const { data } = await supabase
+        .from("users")
+        .select("id, first_name, last_name, profile_image_url")
+        .in("id", userIds);
+      const map: Record<string, any> = {};
+      (data || []).forEach((u: any) => { map[u.id] = u; });
+      return map;
+    },
+    enabled: submissions.length > 0,
+  });
+
+  const { data: missions = {} } = useQuery({
+    queryKey: ["missions-for-verification", submissions],
+    queryFn: async () => {
+      const missionIds = Array.from(new Set(submissions.map((s: any) => s.missionId))) as number[];
+      if (missionIds.length === 0) return {};
+      const { data } = await supabase
+        .from("missions")
+        .select("id, title, tasks")
+        .in("id", missionIds);
+      const map: Record<number, any> = {};
+      (data || []).forEach((m: any) => { map[m.id] = m; });
+      return map;
+    },
+    enabled: submissions.length > 0,
+  });
+
+  const getUserDisplay = (userId: string) => {
+    const u = users[userId];
+    if (u?.first_name) return `${u.first_name}${u.last_name ? " " + u.last_name : ""}`;
+    return `User #${userId.slice(0, 8)}`;
+  };
+
+  const getUserInitials = (userId: string) => {
+    const u = users[userId];
+    if (u?.first_name) return `${u.first_name[0]}${u.last_name?.[0] || ""}`.toUpperCase();
+    return userId.slice(0, 2).toUpperCase();
+  };
+
+  const getUserAvatar = (userId: string) => {
+    return users[userId]?.profile_image_url || null;
+  };
+
+  const getMissionTitle = (missionId: number) => {
+    return missions[missionId]?.title || `Mission #${missionId}`;
+  };
+
+  const getTaskTitle = (missionId: number, taskId: string) => {
+    const m = missions[missionId];
+    if (!m?.tasks) return taskId;
+    const task = (m.tasks as any[]).find((t: any) => t.id === taskId);
+    return task?.title || taskId;
+  };
+
   const approveMutation = useMutation({
     mutationFn: async (id: number) => {
       const res = await fetch(`/api/submissions/${id}`, {
@@ -53,7 +113,7 @@ export default function VerificationCenter() {
       setSelectedSubmission(null);
       toast({
         title: "Submission Approved",
-        description: "Points have been awarded to the user.",
+        description: "Points have been awarded and the user has been notified.",
         className: "bg-green-600 text-white border-0",
       });
     },
@@ -64,7 +124,7 @@ export default function VerificationCenter() {
       const res = await fetch(`/api/submissions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "rejected", rejectionReason }),
+        body: JSON.stringify({ status: "rejected", reviewNote: rejectionReason }),
       });
       if (!res.ok) throw new Error("Failed to reject");
       return res.json();
@@ -130,9 +190,6 @@ export default function VerificationCenter() {
           <Badge variant="secondary" className="text-sm px-3 py-1 h-9">
             {pendingCount} Pending
           </Badge>
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
@@ -152,12 +209,12 @@ export default function VerificationCenter() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {submissions.map((sub: any) => (
-            <Card key={sub.id} className="overflow-hidden hover:shadow-md transition-shadow">
+            <Card key={sub.id} className="overflow-hidden hover:shadow-md transition-shadow" data-testid={`submission-card-${sub.id}`}>
               <div className="relative h-48 bg-gray-100 group cursor-pointer" onClick={() => setSelectedSubmission(sub)}>
-                {sub.proofUrl ? (
-                  <img 
-                    src={sub.proofUrl} 
-                    alt="Proof" 
+                {sub.proofUrl && sub.proofUrl !== "uploaded://simulated" ? (
+                  <img
+                    src={sub.proofUrl}
+                    alt="Proof"
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -177,42 +234,45 @@ export default function VerificationCenter() {
                   </Badge>
                 </div>
               </div>
-              
+
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback>{sub.userId?.slice(0, 2).toUpperCase() || "U"}</AvatarFallback>
+                    <AvatarImage src={getUserAvatar(sub.userId) || undefined} />
+                    <AvatarFallback>{getUserInitials(sub.userId)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-bold leading-none">User #{sub.userId?.slice(0, 8)}</p>
+                    <p className="text-sm font-bold leading-none" data-testid={`submission-user-${sub.id}`}>{getUserDisplay(sub.userId)}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                       <Clock className="h-3 w-3" /> {getTimeSince(sub.createdAt)}
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Mission</p>
-                  <p className="text-sm font-medium line-clamp-1">Mission #{sub.missionId}</p>
+                  <p className="text-sm font-medium line-clamp-1" data-testid={`submission-mission-${sub.id}`}>{getMissionTitle(sub.missionId)}</p>
                 </div>
                 <div className="space-y-1 mt-2">
                   <p className="text-xs text-muted-foreground uppercase font-semibold tracking-wider">Task</p>
-                  <p className="text-sm line-clamp-1">{sub.taskId}</p>
+                  <p className="text-sm line-clamp-1" data-testid={`submission-task-${sub.id}`}>{getTaskTitle(sub.missionId, sub.taskId)}</p>
                 </div>
               </CardContent>
-              
+
               <CardFooter className="p-3 bg-gray-50 border-t grid grid-cols-2 gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-100"
                   onClick={() => setSelectedSubmission(sub)}
+                  data-testid={`button-reject-${sub.id}`}
                 >
                   <XCircle className="h-4 w-4 mr-1" /> Reject
                 </Button>
-                <Button 
+                <Button
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
                   onClick={() => handleApprove(sub.id)}
                   disabled={approveMutation.isPending}
+                  data-testid={`button-approve-${sub.id}`}
                 >
                   {approveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />}
                   Approve
@@ -228,18 +288,31 @@ export default function VerificationCenter() {
           <DialogHeader>
             <DialogTitle>Review Submission</DialogTitle>
             <DialogDescription>
-              Mission #{selectedSubmission?.missionId} - Task: {selectedSubmission?.taskId}
+              {selectedSubmission && (
+                <>
+                  <span className="font-medium">{getMissionTitle(selectedSubmission.missionId)}</span>
+                  {" — "}
+                  {getTaskTitle(selectedSubmission.missionId, selectedSubmission.taskId)}
+                  {" by "}
+                  <span className="font-medium">{getUserDisplay(selectedSubmission.userId)}</span>
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {selectedSubmission?.proofUrl && (
+            {selectedSubmission?.proofUrl && selectedSubmission.proofUrl !== "uploaded://simulated" ? (
               <div className="bg-gray-100 rounded-lg overflow-hidden">
-                <img 
-                  src={selectedSubmission.proofUrl} 
-                  alt="Proof" 
-                  className="w-full h-48 object-contain"
+                <img
+                  src={selectedSubmission.proofUrl}
+                  alt="Proof"
+                  className="w-full max-h-80 object-contain"
                 />
+              </div>
+            ) : (
+              <div className="bg-gray-100 rounded-lg p-8 text-center">
+                <Camera className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">No image attached to this submission</p>
               </div>
             )}
 
@@ -248,30 +321,32 @@ export default function VerificationCenter() {
                 <TabsTrigger value="approve" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700">Approve</TabsTrigger>
                 <TabsTrigger value="reject" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700">Reject</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="approve" className="mt-4 space-y-4">
                 <div className="p-4 border rounded-md bg-green-50/50 text-green-800 text-sm">
-                  <p>User will receive points immediately.</p>
+                  <p>User will receive points immediately and a notification.</p>
                   <p>This action cannot be undone.</p>
                 </div>
-                <Button 
-                  className="w-full bg-green-600 hover:bg-green-700" 
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700"
                   onClick={() => selectedSubmission && handleApprove(selectedSubmission.id)}
                   disabled={approveMutation.isPending}
+                  data-testid="button-confirm-approve"
                 >
                   {approveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Confirm Approval
                 </Button>
               </TabsContent>
-              
+
               <TabsContent value="reject" className="mt-4 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reason">Rejection Reason</Label>
-                  <Textarea 
-                    id="reason" 
-                    placeholder="Explain why this was rejected..." 
+                  <Textarea
+                    id="reason"
+                    placeholder="Explain why this was rejected..."
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
+                    data-testid="input-rejection-reason"
                   />
                   <div className="flex gap-2 mt-2">
                     <Badge variant="outline" className="cursor-pointer hover:bg-gray-100" onClick={() => setRejectionReason("Image is blurry")}>Blurry</Badge>
@@ -279,11 +354,12 @@ export default function VerificationCenter() {
                     <Badge variant="outline" className="cursor-pointer hover:bg-gray-100" onClick={() => setRejectionReason("Date invalid")}>Date Invalid</Badge>
                   </div>
                 </div>
-                <Button 
-                  variant="destructive" 
-                  className="w-full" 
-                  onClick={handleReject} 
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={handleReject}
                   disabled={!rejectionReason || rejectMutation.isPending}
+                  data-testid="button-confirm-reject"
                 >
                   {rejectMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Reject Submission
