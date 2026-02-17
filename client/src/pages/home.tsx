@@ -75,7 +75,7 @@ export default function Home() {
                 </Button>
               </Link>
               {!isAuthenticated && (
-                <a href="/api/login">
+                <a href="/auth/login">
                   <Button size="lg" variant="outline" className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 h-12" data-testid="button-sign-in-hero">
                     Sign In
                   </Button>
@@ -121,7 +121,7 @@ export default function Home() {
             ) : (
               <div className="mb-2">
                 <p className="text-sm text-gray-500 mb-4">Create an account to start earning points and unlock exclusive rewards!</p>
-                <a href="/api/login">
+                <a href="/auth/login">
                   <Button className="w-full bg-[var(--brand)] hover:bg-[var(--brand-hover)] text-white" data-testid="button-sign-in-progress">
                     Sign In to Start
                   </Button>

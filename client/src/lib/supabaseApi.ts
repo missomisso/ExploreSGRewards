@@ -64,7 +64,7 @@ export async function getMission(id: number) {
     .from("missions")
     .select("*")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data ? mapMission(data) : null;

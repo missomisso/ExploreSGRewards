@@ -118,8 +118,8 @@ export const sbStorage = {
       .from("users")
       .select("*")
       .eq("id", id)
-      .single();
-    if (error) return undefined;
+      .maybeSingle();
+    if (error || !data) return undefined;
     return mapUser(data);
   },
 
@@ -128,8 +128,8 @@ export const sbStorage = {
       .from("users")
       .select("*")
       .eq("email", email)
-      .single();
-    if (error) return undefined;
+      .maybeSingle();
+    if (error || !data) return undefined;
     return mapUser(data);
   },
 

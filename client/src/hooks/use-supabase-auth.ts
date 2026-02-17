@@ -11,13 +11,42 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
+async function syncUserToDb(session: Session): Promise<User | null> {
+  try {
+    const fullName = (session.user.user_metadata?.full_name as string | undefined) ?? "";
+    const res = await fetch("/api/auth/sync", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        firstName:
+          (session.user.user_metadata?.first_name as string | undefined) ??
+          fullName.split(" ")[0] ??
+          null,
+        lastName:
+          (session.user.user_metadata?.last_name as string | undefined) ??
+          (fullName.split(" ").slice(1).join(" ") || null),
+        profileImageUrl:
+          (session.user.user_metadata?.avatar_url as string | undefined) ?? null,
+      }),
+    });
+    if (res.ok) {
+      return (await res.json()) as User;
+    }
+  } catch {
+  }
+  return null;
+}
+
 async function fetchDbUser(supabaseUser: SupabaseUser): Promise<User> {
   const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("users")
     .select("*")
     .eq("id", supabaseUser.id)
-    .single();
+    .maybeSingle();
 
   if (data && !error) {
     return {
@@ -70,7 +99,8 @@ export function useSupabaseAuth() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session?.user) {
-        const dbUser = await fetchDbUser(session.user);
+        const synced = await syncUserToDb(session);
+        const dbUser = synced || await fetchDbUser(session.user);
         setState({
           user: dbUser,
           supabaseUser: session.user,
@@ -90,7 +120,8 @@ export function useSupabaseAuth() {
 
       const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
-          const dbUser = await fetchDbUser(session.user);
+          const synced = await syncUserToDb(session);
+          const dbUser = synced || await fetchDbUser(session.user);
           setState({
             user: dbUser,
             supabaseUser: session.user,
