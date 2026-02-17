@@ -189,7 +189,7 @@ app.post("/api/auth/sync", async (req, res) => {
       .from("users")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
     let user;
     if (existing) {
