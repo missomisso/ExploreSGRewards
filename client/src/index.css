@@ -1,0 +1,76 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--foreground);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--brand);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--panel);
+  --color-secondary-foreground: var(--brand);
+  --color-muted: #f0ebe0;
+  --color-muted-foreground: #888888;
+  --color-accent: var(--brand-hover);
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e5e0d0;
+  --color-input: #ffffff;
+  --color-ring: var(--brand);
+  
+  --font-sans: "Poppins", sans-serif;
+  --font-heading: "Poppins", sans-serif;
+  --font-hand: "Caveat", cursive;
+  
+  --radius-sm: 0.3rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+:root {
+  /* Brand Colors from Request */
+  --bg: #faf8f3;
+  --panel: #fffdd4;
+  --brand: #f68003;
+  --brand-hover: #f67800;
+  --foreground: #1a1a1a;
+
+  /* Chart Colors (Keeping existing) */
+  --chart-1: 280 60% 50%;
+  --chart-2: 145 65% 40%;
+  --chart-3: 45 90% 55%;
+  --chart-4: 190 80% 50%;
+  --chart-5: 340 70% 60%;
+}
+
+.dark {
+  --bg: #1a1a1a;
+  --panel: #2a2a2a;
+  --brand: #f68003;
+  --brand-hover: #f67800;
+  --foreground: #faf8f3;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-sans antialiased bg-[var(--bg)] text-[var(--foreground)];
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold tracking-tight;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 dark:bg-black/70 dark:border-white/10;
+  }
+}
