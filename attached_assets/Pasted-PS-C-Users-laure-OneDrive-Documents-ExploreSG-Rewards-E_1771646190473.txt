@@ -1,0 +1,29 @@
+PS C:\Users\laure\OneDrive\Documents\ExploreSG Rewards\ExploreSGRewards> npm run test:e2e
+
+> rest-express@1.0.0 test:e2e
+> playwright test
+
+[WebServer] [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+
+Running 3 tests using 1 worker
+
+  ✘  1 [chromium] › tests\e2e\home.spec.ts:4:3 › Home Page – E2E User Journey › should load the home page and display key elements (3ms)
+  ✘  2 …m] › tests\e2e\home.spec.ts:15:3 › Home Page – E2E User Journey › should navigate to rewards page, view rewards, and see point costs (2ms)
+  ✘  3 …um] › tests\e2e\home.spec.ts:38:3 › Home Page – E2E User Journey › should navigate to explore page and see mission cards or listings (2ms)
+
+                                                                                                                                                   1) [chromium] › tests\e2e\home.spec.ts:4:3 › Home Page – E2E User Journey › should load the home page and display key elements
+
+    Error: browserType.launch: Failed to launch chromium because executable doesn't exist at /nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium
+
+  2) [chromium] › tests\e2e\home.spec.ts:15:3 › Home Page – E2E User Journey › should navigate to rewards page, view rewards, and see point costs 
+
+    Error: browserType.launch: Failed to launch chromium because executable doesn't exist at /nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium
+
+  3) [chromium] › tests\e2e\home.spec.ts:38:3 › Home Page – E2E User Journey › should navigate to explore page and see mission cards or listings  
+
+    Error: browserType.launch: Failed to launch chromium because executable doesn't exist at /nix/store/zi4f80l169xlmivz8vja8wlphq74qqk0-chromium-125.0.6422.141/bin/chromium
+
+  3 failed
+    [chromium] › tests\e2e\home.spec.ts:4:3 › Home Page – E2E User Journey › should load the home page and display key elements
+    [chromium] › tests\e2e\home.spec.ts:15:3 › Home Page – E2E User Journey › should navigate to rewards page, view rewards, and see point costs  
+    [chromium] › tests\e2e\home.spec.ts:38:3 › Home Page – E2E User Journey › should navigate to explore page and see mission cards or listings 
