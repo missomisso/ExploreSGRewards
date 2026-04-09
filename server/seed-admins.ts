@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "./supabase";
-import { db } from "./db";
-import { users } from "@shared/schema";
+import { sbStorage } from "./storage";
 
 async function createAdminUser(email: string, password: string, role: "admin" | "business", firstName: string, lastName: string) {
   console.log(`Creating ${role} account: ${email}...`);
@@ -17,18 +16,25 @@ async function createAdminUser(email: string, password: string, role: "admin" | 
       const { data: { users: existingUsers } } = await supabaseAdmin.auth.admin.listUsers();
       const existingUser = existingUsers?.find(u => u.email === email);
       if (existingUser) {
-        await db.insert(users).values({
-          id: existingUser.id,
-          email,
-          firstName,
-          lastName,
-          role,
-          level: 1,
-          points: 0,
-        }).onConflictDoUpdate({
-          target: users.id,
-          set: { role, firstName, lastName },
-        });
+        let user = await sbStorage.getUser(existingUser.id);
+        if (user) {
+          await sbStorage.updateUser(existingUser.id, {
+            email,
+            firstName,
+            lastName,
+            role,
+          });
+        } else {
+          await sbStorage.createUser({
+            id: existingUser.id,
+            email,
+            firstName,
+            lastName,
+            role,
+            level: 1,
+            points: 0,
+          });
+        }
         console.log(`Updated ${email} with role: ${role}`);
         return;
       }
@@ -37,18 +43,25 @@ async function createAdminUser(email: string, password: string, role: "admin" | 
   }
 
   if (authUser.user) {
-    await db.insert(users).values({
-      id: authUser.user.id,
-      email,
-      firstName,
-      lastName,
-      role,
-      level: 1,
-      points: 0,
-    }).onConflictDoUpdate({
-      target: users.id,
-      set: { role, firstName, lastName },
-    });
+    let user = await sbStorage.getUser(authUser.user.id);
+    if (user) {
+      await sbStorage.updateUser(authUser.user.id, {
+        email,
+        firstName,
+        lastName,
+        role,
+      });
+    } else {
+      await sbStorage.createUser({
+        id: authUser.user.id,
+        email,
+        firstName,
+        lastName,
+        role,
+        level: 1,
+        points: 0,
+      });
+    }
     console.log(`Created ${email} with role: ${role}`);
   }
 }

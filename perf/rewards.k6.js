@@ -10,7 +10,7 @@ export const options = {
   },
 };
 
-const BASE_URL = __ENV.BASE_URL || "http://localhost:5173"; 
+const BASE_URL = __ENV.BASE_URL || "http://localhost:5000"; 
 
 
 export default function () {

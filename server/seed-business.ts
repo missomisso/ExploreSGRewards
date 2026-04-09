@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "./supabase";
-import { db } from "./db";
-import { users } from "@shared/schema";
+import { sbStorage } from "./storage";
 
 const businessAccounts = [
   {
@@ -83,20 +82,29 @@ async function createBusinessUser(
       const { data: { users: existingUsers } } = await supabaseAdmin.auth.admin.listUsers();
       const existingUser = existingUsers?.find(u => u.email === email);
       if (existingUser) {
-        await db.insert(users).values({
-          id: existingUser.id,
-          email,
-          firstName,
-          lastName,
-          role: "business",
-          businessName,
-          businessDescription,
-          level: 1,
-          points: 0,
-        }).onConflictDoUpdate({
-          target: users.id,
-          set: { role: "business", firstName, lastName, businessName, businessDescription },
-        });
+        let user = await sbStorage.getUser(existingUser.id);
+        if (user) {
+          await sbStorage.updateUser(existingUser.id, {
+            email,
+            firstName,
+            lastName,
+            role: "business",
+            businessName,
+            businessDescription,
+          });
+        } else {
+          await sbStorage.createUser({
+            id: existingUser.id,
+            email,
+            firstName,
+            lastName,
+            role: "business",
+            businessName,
+            businessDescription,
+            level: 1,
+            points: 0,
+          });
+        }
         console.log(`Updated ${email}`);
         return existingUser.id;
       }
@@ -105,20 +113,29 @@ async function createBusinessUser(
   }
 
   if (authUser.user) {
-    await db.insert(users).values({
-      id: authUser.user.id,
-      email,
-      firstName,
-      lastName,
-      role: "business",
-      businessName,
-      businessDescription,
-      level: 1,
-      points: 0,
-    }).onConflictDoUpdate({
-      target: users.id,
-      set: { role: "business", firstName, lastName, businessName, businessDescription },
-    });
+    let user = await sbStorage.getUser(authUser.user.id);
+    if (user) {
+      await sbStorage.updateUser(authUser.user.id, {
+        email,
+        firstName,
+        lastName,
+        role: "business",
+        businessName,
+        businessDescription,
+      });
+    } else {
+      await sbStorage.createUser({
+        id: authUser.user.id,
+        email,
+        firstName,
+        lastName,
+        role: "business",
+        businessName,
+        businessDescription,
+        level: 1,
+        points: 0,
+      });
+    }
     console.log(`Created ${email}`);
     return authUser.user.id;
   }

@@ -1,5 +1,4 @@
-import { db } from "./db";
-import { rewards } from "@shared/schema";
+import { sbStorage } from "./storage";
 
 const sampleRewards = [
   {
@@ -49,7 +48,7 @@ async function main() {
   
   for (const reward of sampleRewards) {
     try {
-      await db.insert(rewards).values(reward).onConflictDoNothing();
+      await sbStorage.createReward(reward);
       console.log(`Added reward: ${reward.title}`);
     } catch (error) {
       console.log(`Reward might already exist: ${reward.title}`);

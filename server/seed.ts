@@ -1,4 +1,4 @@
-import { storage } from "./storage";
+import { sbStorage as storage } from "./storage";
 
 async function seed() {
   console.log("🌱 Seeding database...");
@@ -104,7 +104,7 @@ async function seed() {
   for (const tourist of tourists) {
     try {
       const user = await storage.createUser(tourist);
-      console.log("✅ Created tourist:", user.email);
+      console.log("✅ Created tourist:", user!.email);
     } catch (e: any) {
       if (e.code === '23505') {
         console.log("⏭️ Tourist already exists:", tourist.email);
@@ -117,7 +117,7 @@ async function seed() {
   for (const business of businesses) {
     try {
       const user = await storage.createUser(business);
-      console.log("✅ Created business:", user.email);
+      console.log("✅ Created business:", user!.email);
     } catch (e: any) {
       if (e.code === '23505') {
         console.log("⏭️ Business already exists:", business.email);
@@ -129,7 +129,7 @@ async function seed() {
 
   try {
     const adminUser = await storage.createUser(admin);
-    console.log("✅ Created admin:", adminUser.email);
+    console.log("✅ Created admin:", adminUser!.email);
   } catch (e: any) {
     if (e.code === '23505') {
       console.log("⏭️ Admin already exists:", admin.email);
@@ -270,7 +270,7 @@ async function seed() {
   for (const missionData of missions) {
     try {
       const mission = await storage.createMission(missionData);
-      console.log("✅ Created mission:", mission.title);
+      console.log("✅ Created mission:", mission!.title);
     } catch (e: any) {
       if (e.code === '23505') {
         console.log("⏭️ Mission already exists:", missionData.title);
@@ -319,7 +319,7 @@ async function seed() {
   for (const rewardData of rewardsData) {
     try {
       const reward = await storage.createReward(rewardData);
-      console.log("✅ Created reward:", reward.title);
+      console.log("✅ Created reward:", reward!.title);
     } catch (e: any) {
       if (e.code === '23505') {
         console.log("⏭️ Reward already exists:", rewardData.title);
