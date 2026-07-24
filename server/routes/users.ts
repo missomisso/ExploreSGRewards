@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { sbStorage } from "../storage/index.js";
-import { supabaseAdmin } from "../supabase";
+import { supabaseAdmin } from "../supabase.js";
 
 export const usersRouter = Router();
 

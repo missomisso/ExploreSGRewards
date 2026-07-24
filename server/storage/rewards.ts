@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "../supabase";
-import { mapReward, mapUserReward } from "../utils/mappers";
+import { supabaseAdmin } from "../supabase.js";
+import { mapReward, mapUserReward } from "../utils/mappers.js";
 
 export const rewardsStorage = {
   async getRewards() {

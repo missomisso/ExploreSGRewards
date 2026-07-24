@@ -1,5 +1,5 @@
 import { type User, type UpsertUser } from "@shared/models/auth";
-import { sbStorage } from "../../storage";
+import { sbStorage } from "../../storage/index.js";
 
 // Interface for auth storage operations
 // (IMPORTANT) These user operations are mandatory for Replit Auth.

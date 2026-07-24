@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "./supabase";
-import { sbStorage } from "./storage";
+import { supabaseAdmin } from "./supabase.js";
+import { sbStorage } from "./storage/index.js";
 
 const businessAccounts = [
   {

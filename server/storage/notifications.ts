@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "../supabase";
-import { mapNotification } from "../utils/mappers";
+import { supabaseAdmin } from "../supabase.js";
+import { mapNotification } from "../utils/mappers.js";
 
 export const notificationsStorage = {
   async getNotifications(userId: string) {

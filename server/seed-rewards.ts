@@ -1,4 +1,4 @@
-import { sbStorage } from "./storage";
+import { sbStorage } from "./storage/index.js";
 
 const sampleRewards = [
   {

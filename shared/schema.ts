@@ -4,8 +4,8 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Re-export auth models (users and sessions tables)
-export * from "./models/auth";
-import { users } from "./models/auth";
+export * from "./models/auth.js";
+import { users } from "./models/auth.js";
 
 // Missions Table
 export const missions = pgTable("missions", {

@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "../supabase";
-import { mapSubmission } from "../utils/mappers";
+import { supabaseAdmin } from "../supabase.js";
+import { mapSubmission } from "../utils/mappers.js";
 
 export const submissionsStorage = {
   async createSubmission(sub: any) {

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { verifySupabaseToken } from "../supabase";
+import { verifySupabaseToken } from "../supabase.js";
 
 declare global {
   namespace Express {

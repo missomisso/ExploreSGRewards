@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { sbStorage } from "../storage/index.js";
-import { verifySupabaseToken, supabaseAdmin } from "../supabase";
+import { verifySupabaseToken, supabaseAdmin } from "../supabase.js";
 
 export const authRouter = Router();
 

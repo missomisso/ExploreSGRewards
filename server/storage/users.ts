@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "../supabase";
-import { mapUser } from "../utils/mappers";
+import { supabaseAdmin } from "../supabase.js";
+import { mapUser } from "../utils/mappers.js";
 
 export const usersStorage = {
   async getUser(id: string) {

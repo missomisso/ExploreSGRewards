@@ -1,13 +1,13 @@
 import type { Express } from "express";
 import type { Server } from "http";
 
-import { authRouter } from "./auth";
-import { usersRouter } from "./users";
-import { missionsRouter } from "./missions";
-import { submissionsRouter } from "./submissions";
-import { rewardsRouter } from "./rewards";
-import { adminRouter } from "./admin";
-import { notificationsRouter } from "./notifications";
+import { authRouter } from "./auth.js";
+import { usersRouter } from "./users.js";
+import { missionsRouter } from "./missions.js";
+import { submissionsRouter } from "./submissions.js";
+import { rewardsRouter } from "./rewards.js";
+import { adminRouter } from "./admin.js";
+import { notificationsRouter } from "./notifications.js";
 
 export async function registerRoutes(
   httpServer: Server | null,

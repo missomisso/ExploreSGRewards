@@ -1,4 +1,4 @@
-import { sbStorage as storage } from "./storage";
+import { sbStorage as storage } from "./storage/index.js";
 
 async function seed() {
   console.log("🌱 Seeding database...");

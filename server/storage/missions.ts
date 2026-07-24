@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "../supabase";
-import { mapMission, mapUserMission } from "../utils/mappers";
+import { supabaseAdmin } from "../supabase.js";
+import { mapMission, mapUserMission } from "../utils/mappers.js";
 
 export const missionsStorage = {
   async getMissions(activeOnly: boolean = true) {
