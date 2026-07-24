@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sbStorage } from "../storage";
+import { sbStorage } from "../storage/index.js";
 import { requireAuth } from "../utils/auth";
 
 export const missionsRouter = Router();

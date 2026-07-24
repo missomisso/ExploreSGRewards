@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { sbStorage } from "../storage";
+import { sbStorage } from "../storage/index.js";
 import { supabaseAdmin } from "../supabase";
 
 export const adminRouter = Router();
